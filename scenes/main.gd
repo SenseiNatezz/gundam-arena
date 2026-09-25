@@ -10,15 +10,54 @@ const EXPLOSION := preload("res://scenes/fx/explosion.tscn")
 const DAMAGE_NUMBER := preload("res://scenes/fx/damage_number.tscn")
 const GLOW := preload("res://assets/fx/glow.tres")
 const CAMERA_HOME := Vector2(360, 640)
+const ENEMY_MISSILE := preload("res://scenes/enemy_missile.tscn")
 const ENEMY_SCENES := {
 	&"drone": preload("res://scenes/enemies/drone.tscn"),
 	&"gunship": preload("res://scenes/enemies/gunship.tscn"),
 	&"boss": preload("res://scenes/enemies/boss.tscn"),
+	&"wasp": preload("res://scenes/enemies/wasp.tscn"),
+	&"crawler": preload("res://scenes/enemies/crawler.tscn"),
+	&"mine": preload("res://scenes/enemies/mine.tscn"),
+	&"leviathan": preload("res://scenes/enemies/leviathan.tscn"),
 }
+const BOSS_TYPES := [&"boss", &"leviathan"]
 
-## Each wave is a list of groups. A group spawns `count` enemies of `type` in a `formation`,
-## `delay` seconds after the previous group. Formations: line, row, vee, swarm, sides, center.
-const WAVES := [
+## Per level: a list of waves. Each wave is a list of groups; a group spawns `count` enemies of
+## `type` in a `formation`, `delay` seconds after the previous group.
+## Formations: line, row, vee, swarm, sides, center.
+const STAGE_WAVES := {
+	1: STAGE_1_WAVES,
+	2: STAGE_2_WAVES,
+}
+const STAGE_2_WAVES := [
+	[
+		{"type": &"wasp", "count": 4, "formation": &"row", "delay": 0.0},
+		{"type": &"crawler", "count": 1, "formation": &"center", "delay": 4.0},
+		{"type": &"wasp", "count": 4, "formation": &"vee", "delay": 5.0},
+	],
+	[
+		{"type": &"mine", "count": 6, "formation": &"swarm", "delay": 0.0},
+		{"type": &"crawler", "count": 2, "formation": &"row", "delay": 3.0},
+		{"type": &"wasp", "count": 6, "formation": &"swarm", "delay": 5.0},
+	],
+	[
+		{"type": &"drone", "count": 8, "formation": &"swarm", "delay": 0.0},
+		{"type": &"wasp", "count": 6, "formation": &"line", "delay": 4.0},
+		{"type": &"crawler", "count": 2, "formation": &"row", "delay": 4.0},
+		{"type": &"mine", "count": 8, "formation": &"sides", "delay": 5.0},
+	],
+	[
+		{"type": &"crawler", "count": 3, "formation": &"row", "delay": 0.0},
+		{"type": &"wasp", "count": 8, "formation": &"swarm", "delay": 3.0},
+		{"type": &"mine", "count": 10, "formation": &"sides", "delay": 6.0},
+		{"type": &"gunship", "count": 2, "formation": &"row", "delay": 5.0},
+		{"type": &"wasp", "count": 6, "formation": &"vee", "delay": 4.0},
+	],
+	[
+		{"type": &"leviathan", "count": 1, "formation": &"center", "delay": 0.0},
+	],
+]
+const STAGE_1_WAVES := [
 	[
 		{"type": &"drone", "count": 6, "formation": &"line", "delay": 0.0},
 		{"type": &"drone", "count": 6, "formation": &"vee", "delay": 6.0},
@@ -71,22 +110,43 @@ var _cast_at := -1.0  # --cast-at: fire the special at this game time (run_time,
 
 
 func _ready() -> void:
-	GameState.reset()
+	if GameState.carry_over:
+		# "NEXT LEVEL" or retrying a later level: keep the run, start this level fresh.
+		GameState.carry_over = false
+		GameState.begin_stage()
+	else:
+		GameState.reset()
+		var stage_arg := _early_arg("stage")
+		if stage_arg != "":
+			GameState.stage = clampi(int(stage_arg), 1, GameState.FINAL_STAGE)
+	GameState.snapshot_stage()
 	GameState.world = self
+	$Arena.setup(GameState.stage)
 	_add_material.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
 	_pools[&"player"] = _make_pool(PLAYER_BULLET, 160)
 	_pools[&"enemy"] = _make_pool(ENEMY_BULLET, 220)
 	_pools[&"missile"] = _make_pool(MISSILE, 24)
+	_pools[&"enemy_missile"] = _make_pool(ENEMY_MISSILE, 24)
 	player.died.connect(_on_player_died)
 	GameState.level_up_ready.connect(_on_level_up_ready)
 	upgrade_menu.chosen.connect(_on_upgrade_chosen)
 	hud.pause_pressed.connect(_toggle_pause)
 	pause_menu.primary_pressed.connect(_toggle_pause)
-	pause_menu.secondary_pressed.connect(_restart)
-	end_screen.primary_pressed.connect(_restart)
-	hud.show_banner("MISSION START", "Clear %d waves" % GameState.TOTAL_WAVES, Color(0.6, 0.85, 1.0), 1.0)
+	pause_menu.secondary_pressed.connect(_retry_level)
+	end_screen.primary_pressed.connect(_on_end_primary)
+	end_screen.secondary_pressed.connect(_new_run)
+	var info := GameState.stage_info()
+	hud.show_banner(info.title, "Level %d  ·  Clear %d waves" % [GameState.stage, GameState.TOTAL_WAVES], Color(0.6, 0.85, 1.0), 1.0)
 	_warm_up()
 	_parse_debug_args()
+
+
+## Reads a `--name=value` user arg before the full debug parse (needed before the arena is built).
+func _early_arg(name: String) -> String:
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--%s=" % name):
+			return arg.split("=", true, 1)[1]
+	return ""
 
 
 func _process(delta: float) -> void:
@@ -139,7 +199,7 @@ func _update_waves(delta: float) -> void:
 func _start_wave(n: int) -> void:
 	GameState.wave = n
 	GameState.wave_changed.emit(n, GameState.TOTAL_WAVES)
-	_wave_queue = WAVES[n - 1].duplicate(true)
+	_wave_queue = STAGE_WAVES[GameState.stage][n - 1].duplicate(true)
 	var total := 0
 	for group in _wave_queue:
 		total += group.count
@@ -150,7 +210,7 @@ func _start_wave(n: int) -> void:
 	if GameState.debug.autopilot:
 		print("WAVE %d  t=%.1f  hp=%d  level=%d  stacks=%s" % [n, GameState.run_time, player.hp, GameState.level, GameState.stacks])
 	if n == GameState.TOTAL_WAVES:
-		hud.show_banner("WARNING", "Mobile armor approaching", Color(1.0, 0.25, 0.2), 1.6)
+		hud.show_banner("WARNING", GameState.stage_info().boss.capitalize() + " approaching", Color(1.0, 0.25, 0.2), 1.6)
 		Sfx.play(&"alarm", -4.0, 0.0)
 		_group_timer = 2.4
 	else:
@@ -163,6 +223,7 @@ func _on_wave_cleared() -> void:
 	if GameState.wave >= GameState.TOTAL_WAVES:
 		_state = &"won"
 		GameState.pending_levels = 0
+		player.make_invulnerable()  # leftover bullets can't kill you after the boss falls
 		get_tree().create_timer(2.2, false).timeout.connect(_show_victory)
 	else:
 		_state = &"between"
@@ -210,6 +271,8 @@ func spawn_enemy(type: StringName, from: Vector2, to: Vector2, extra := false) -
 	enemy.enter_target = to
 	enemy.died.connect(_on_enemy_died)
 	entities.add_child(enemy)
+	if type in BOSS_TYPES and _debug_args.has("boss-hp"):
+		enemy.hp = enemy.max_hp * float(_debug_args["boss-hp"])  # debug: start a boss already damaged
 	if extra:
 		GameState.enemies_remaining += 1
 		GameState.enemies_changed.emit(GameState.enemies_remaining)
@@ -220,7 +283,8 @@ func _on_enemy_died(enemy: Enemy) -> void:
 	GameState.kills += 1
 	GameState.enemies_remaining -= 1
 	GameState.enemies_changed.emit(GameState.enemies_remaining)
-	if ENEMY_SCENES[&"boss"].resource_path == enemy.scene_file_path:
+	var is_boss := BOSS_TYPES.any(func(t: StringName) -> bool: return ENEMY_SCENES[t].resource_path == enemy.scene_file_path)
+	if is_boss:
 		for other: Enemy in get_tree().get_nodes_in_group("enemies"):
 			other.kill()
 
@@ -275,6 +339,23 @@ func fire_missile(pos: Vector2, vel: Vector2, damage: float) -> void:
 
 func fire_enemy_bullet(pos: Vector2, vel: Vector2, damage: float) -> void:
 	_take(_pools[&"enemy"]).launch(pos, vel, damage)
+
+
+func fire_enemy_missile(pos: Vector2, vel: Vector2, damage: float) -> void:
+	_take(_pools[&"enemy_missile"]).launch(pos, vel, damage)
+
+
+## Explosion that hurts the player and/or enemies inside `radius` (mines, mortar shells).
+func area_blast(pos: Vector2, radius: float, player_damage: float, enemy_damage: float, size := 1.0) -> void:
+	spawn_explosion(pos, size)
+	shake(0.2 * size)
+	Sfx.play(&"explode", -6.0, 0.15)
+	if player_damage > 0.0 and not player.dead and player.global_position.distance_to(pos) < radius + 20.0:
+		player.take_damage(player_damage, pos)
+	if enemy_damage > 0.0:
+		for e: Enemy in get_tree().get_nodes_in_group("enemies"):
+			if not e.dead and e.global_position.distance_to(pos) < radius + e.hit_radius:
+				e.take_damage(enemy_damage, false, (e.global_position - pos).normalized(), 200.0)
 
 
 func spawn_explosion(pos: Vector2, size := 1.0) -> void:
@@ -423,29 +504,68 @@ func _toggle_pause() -> void:
 
 
 func _on_player_died() -> void:
+	if _state == &"won":
+		return
 	if GameState.debug.autopilot:
 		print("DIED  wave=%d  t=%.1f  level=%d" % [GameState.wave, GameState.run_time, GameState.level])
 	_state = &"lost"
 	set_danger_tint(0.0)
 	get_tree().create_timer(1.6, false).timeout.connect(func() -> void:
 		get_tree().paused = true
-		end_screen.open("MISSION FAILED", _run_summary(), Color(1.0, 0.3, 0.25), "RETRY"))
+		_end_action = &"retry"
+		end_screen.open("MISSION FAILED", _run_summary(), Color(1.0, 0.3, 0.25), "RETRY LEVEL",
+			"NEW RUN" if GameState.stage > 1 else ""))
 
+
+var _end_action := &"retry"
 
 func _show_victory() -> void:
 	if GameState.debug.autopilot:
-		print("VICTORY  t=%.1f  hp=%d  level=%d" % [GameState.run_time, player.hp, GameState.level])
+		print("VICTORY  stage=%d  t=%.1f  hp=%d  level=%d" % [GameState.stage, GameState.run_time, player.hp, GameState.level])
 	get_tree().paused = true
-	end_screen.open("MISSION COMPLETE", _run_summary(), Color(0.45, 1.0, 0.55), "PLAY AGAIN")
+	if GameState.stage < GameState.FINAL_STAGE:
+		_end_action = &"next"
+		end_screen.open("SECTOR %s CLEARED" % GameState.stage_info().sector, _run_summary() + "\nYour upgrades carry over.",
+			Color(0.45, 1.0, 0.55), "NEXT LEVEL", "NEW RUN")
+		if GameState.debug.autopilot:
+			get_tree().create_timer(1.0).timeout.connect(_on_end_primary)
+	else:
+		_end_action = &"new_run"
+		end_screen.open("ALL SECTORS CLEARED", _run_summary(), Color(0.45, 1.0, 0.55), "PLAY AGAIN")
 
 
 func _run_summary() -> String:
 	var secs := int(GameState.run_time)
-	return "Wave %d/%d\nKills %d  ·  Level %d\nTime %d:%02d" % [
-		GameState.wave, GameState.TOTAL_WAVES, GameState.kills, GameState.level, secs / 60, secs % 60]
+	return "Level %d  ·  Wave %d/%d\nKills %d  ·  Pilot LV %d\nTime %d:%02d" % [
+		GameState.stage, GameState.wave, GameState.TOTAL_WAVES, GameState.kills, GameState.level, secs / 60, secs % 60]
 
 
-func _restart() -> void:
+func _on_end_primary() -> void:
+	match _end_action:
+		&"next":
+			GameState.stage += 1
+			GameState.carry_over = true
+			_reload()
+		&"retry":
+			_retry_level()
+		_:
+			_new_run()
+
+
+## Restart the current level with the build the player entered it with.
+func _retry_level() -> void:
+	if GameState.stage > 1:
+		GameState.restore_stage_snapshot()
+		GameState.carry_over = true
+	_reload()
+
+
+func _new_run() -> void:
+	GameState.carry_over = false
+	_reload()
+
+
+func _reload() -> void:
 	get_tree().paused = false
 	get_tree().reload_current_scene()
 

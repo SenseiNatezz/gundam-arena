@@ -56,8 +56,8 @@ func deactivate() -> void:
 func _physics_process(delta: float) -> void:
 	_life -= delta
 	if homing:
-		var target := GameState.world.nearest_enemy(global_position) as Node2D
-		if target:
+		var target: Node2D = GameState.world.nearest_enemy(global_position) if player_owned else GameState.player
+		if target and not (target is Player and target.dead):
 			var angle := rotate_toward(velocity.angle(), (target.global_position - global_position).angle(), turn_rate * delta)
 			velocity = Vector2.from_angle(angle) * minf(velocity.length() * (1.0 + 1.5 * delta), 1100.0)
 	global_position += velocity * delta

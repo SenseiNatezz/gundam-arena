@@ -1,0 +1,35 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scenes/enemies/leviathan_turret.gd" id="1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/leviathan_turret.png" id="2"]
+[ext_resource type="Shader" path="res://shaders/hit_flash.gdshader" id="3"]
+
+[sub_resource type="ShaderMaterial" id="flash_mat"]
+resource_local_to_scene = true
+shader = ExtResource("3")
+shader_parameter/flash = 0.0
+shader_parameter/flash_color = Color(1, 1, 1, 1)
+
+[sub_resource type="CircleShape2D" id="shape"]
+radius = 30.0
+
+[node name="LeviathanTurret" type="Area2D"]
+z_index = 1
+collision_layer = 4
+collision_mask = 0
+script = ExtResource("1")
+max_hp = 900.0
+move_speed = 0.0
+contact_damage = 18.0
+xp_orbs = 4
+xp_value = 2
+explosion_size = 1.4
+knockback_resist = 1.0
+
+[node name="Sprite" type="Sprite2D" parent="."]
+material = SubResource("flash_mat")
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("2")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("shape")

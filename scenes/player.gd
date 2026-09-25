@@ -180,6 +180,10 @@ func start_special() -> void:
 	GameState.world.add_fx(cannon)
 
 
+func make_invulnerable() -> void:
+	_invuln = INF
+
+
 func _on_special_finished() -> void:
 	casting = false
 	_invuln = 0.4
@@ -227,7 +231,7 @@ func _check_contact_damage() -> void:
 	if _invuln > 0.0:
 		return
 	for area in hurtbox.get_overlapping_areas():
-		if area is Enemy and not area.dead:
+		if area is Enemy and not area.dead and area.contact_damage > 0.0:
 			take_damage(area.contact_damage, area.global_position)
 			return
 

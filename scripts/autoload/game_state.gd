@@ -10,6 +10,12 @@ signal level_up_ready
 signal stats_changed
 
 const TOTAL_WAVES := 5
+## One entry per level. Main reads the waves/arena/boss for GameState.stage.
+const STAGES := {
+	1: {"sector": "A-1", "title": "HANGAR A-1", "boss": "ARACHNE-CLASS MOBILE ARMOR"},
+	2: {"sector": "B-7", "title": "REACTOR DECK B-7", "boss": "LEVIATHAN-CLASS BATTLESHIP"},
+}
+const FINAL_STAGE := 2
 const BASE_STATS := {
 	"max_hp": 120.0,
 	"move_speed": 380.0,
@@ -49,6 +55,10 @@ var xp_needed := 5
 var pending_levels := 0
 var kills := 0
 var run_time := 0.0
+var stage := 1
+## Set before reloading Main to keep the current run (next level / retry a later level).
+var carry_over := false
+var _stage_snapshot: Dictionary = {}
 
 ## The Main scene (spawning helpers) and the player; set by those nodes in _ready.
 var world: Node
@@ -77,17 +87,47 @@ func _process(delta: float) -> void:
 func reset() -> void:
 	stats = BASE_STATS.duplicate()
 	stacks = {}
-	wave = 0
-	enemies_remaining = 0
 	level = 1
 	xp = 0
 	xp_needed = _xp_for(1)
-	pending_levels = 0
 	kills = 0
 	run_time = 0.0
+	stage = 1
+	begin_stage()
+
+
+## Per-level state; upgrades, level and XP carry over between levels.
+func begin_stage() -> void:
+	wave = 0
+	enemies_remaining = 0
+	pending_levels = 0
 	touch_move = Vector2.ZERO
 	dash_requested = false
 	special_requested = false
+
+
+func stage_info() -> Dictionary:
+	return STAGES[stage]
+
+
+## Remember the build the player entered this level with (used by Retry).
+func snapshot_stage() -> void:
+	_stage_snapshot = {
+		"stats": stats.duplicate(), "stacks": stacks.duplicate(), "level": level,
+		"xp": xp, "xp_needed": xp_needed, "kills": kills, "run_time": run_time,
+	}
+
+
+func restore_stage_snapshot() -> void:
+	if _stage_snapshot.is_empty():
+		return
+	stats = _stage_snapshot.stats.duplicate()
+	stacks = _stage_snapshot.stacks.duplicate()
+	level = _stage_snapshot.level
+	xp = _stage_snapshot.xp
+	xp_needed = _stage_snapshot.xp_needed
+	kills = _stage_snapshot.kills
+	run_time = _stage_snapshot.run_time
 
 
 func _xp_for(lv: int) -> int:

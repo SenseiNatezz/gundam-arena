@@ -34,7 +34,7 @@ func _ready() -> void:
 	t = randf() * 10.0
 	add_to_group("enemies")
 	var shape := get_node_or_null("CollisionShape2D") as CollisionShape2D
-	if shape and shape.shape is CircleShape2D:
+	if shape and (shape.shape is CircleShape2D or shape.shape is CapsuleShape2D):
 		hit_radius = shape.shape.radius
 
 

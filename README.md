@@ -1,7 +1,13 @@
 # Gundam Arena
 
-Top-down mobile-style mech shooter made in Godot 4.7. Pilot a Gundam through 5 waves of drones and
-gunships, pick upgrades as you level up, and take down a spider-mech boss.
+Top-down mobile-style mech shooter made in Godot 4.7. Pilot a Gundam through two levels of 5 waves
+each, pick upgrades as you level up (they carry over between levels), and take down a boss at the end of each:
+
+- **Level 1 – Hangar A-1:** scout drones and gunships, then the spider-mech **Arachne**.
+- **Level 2 – Reactor Deck B-7:** wasp interceptors that dash along warning lanes, mortar crawlers
+  whose shells mark their landing zone, and seeker mines (shoot them early for chain reactions), then the
+  **Leviathan** battleship: destroy its wing turrets, then survive its reactor overload (rotating spoke
+  lasers, homing missiles and a ramming charge).
 
 ## Play
 
@@ -9,11 +15,11 @@ gunships, pick upgrades as you level up, and take down a spider-mech boss.
 - **Windows:** download `GundamArena-windows.zip` from the
   [latest release](https://github.com/SenseiNatezz/gundam-arena/releases/latest), unzip, and run
   `GundamArena.exe`. Windows SmartScreen may warn about an unknown publisher: click
-  *More info → Run anyway*.
+  *More info â Run anyway*.
 
-**Controls:** WASD / arrows or the on-screen stick to move · Space / Shift or the » button to dash ·
-E / Q or the pink cannon button to fire the Hyper Mega Cannon (once unlocked) ·
-Esc / P or the II button to pause · 1 / 2 / 3 to pick an upgrade. The mech auto-fires at the nearest enemy.
+**Controls:** WASD / arrows or the on-screen stick to move Â· Space / Shift or the Â» button to dash Â·
+E / Q or the pink cannon button to fire the Hyper Mega Cannon (once unlocked) Â·
+Esc / P or the II button to pause Â· 1 / 2 / 3 to pick an upgrade. The mech auto-fires at the nearest enemy.
 
 **Hyper Mega Cannon:** a special unlocked from a guaranteed upgrade card at level 4. Time slows as the
 Gundam charges, then it fires a hand-drawn-style beam that sweeps toward enemies. Recharges in ~14s;
@@ -33,7 +39,7 @@ Open `project.godot` in Godot 4.7+ and press F5, or:
 Godot_v4.7.2-stable_win64_console.exe --path .
 ```
 
-Exports: *Project → Export* has **Web** (single-threaded, works on GitHub Pages) and **Windows Desktop**
+Exports: *Project â Export* has **Web** (single-threaded, works on GitHub Pages) and **Windows Desktop**
 (single .exe) presets; output goes to `build/`. `node tools/serve_web.js` serves `build/web` locally.
 
 ### Layout

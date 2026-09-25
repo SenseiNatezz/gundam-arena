@@ -125,7 +125,7 @@ offset_left = 60.0
 offset_top = 6.0
 offset_right = 214.0
 offset_bottom = 40.0
-theme_override_font_sizes/font_size = 26
+theme_override_font_sizes/font_size = 21
 text = "WAVE 1/5"
 
 [node name="EnemyText" type="Label" parent="Root/WaveBox"]

@@ -63,7 +63,7 @@ func _on_xp_changed(xp: int, needed: int, level: int) -> void:
 
 
 func _on_wave_changed(wave: int, total: int) -> void:
-	wave_text.text = "WAVE %d/%d" % [wave, total]
+	wave_text.text = "%s · WAVE %d/%d" % [GameState.stage_info().sector, wave, total]
 
 
 func _on_enemies_changed(remaining: int) -> void:
@@ -71,6 +71,7 @@ func _on_enemies_changed(remaining: int) -> void:
 
 
 func _on_boss_changed(hp: float, max_hp: float) -> void:
+	(boss_bar_box.get_node("BossName") as Label).text = GameState.stage_info().boss
 	boss_bar_box.visible = hp > 0.0
 	boss_bar.max_value = max_hp
 	boss_bar.value = hp

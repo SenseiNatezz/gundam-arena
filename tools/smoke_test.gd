@@ -28,7 +28,7 @@ func _run() -> void:
 	var player: Player = main.get_node("Entities/Player")
 	await _frames(5)
 	if GameState.has_meta("smoke_restarted"):
-		# Second pass after Main._restart(): the fresh scene must be playable again.
+		# Second pass after Main._new_run(): the fresh scene must be playable again.
 		await _frames(260)  # intro (2s) + first group delay (1.4s)
 		_check("restart reloads a clean run", GameState.wave == 1 and GameState.stacks.is_empty() and not player.dead
 			and get_tree().get_nodes_in_group("enemies").size() > 0, "wave=%d enemies=%d" % [GameState.wave, get_tree().get_nodes_in_group("enemies").size()])
@@ -178,4 +178,4 @@ func _run() -> void:
 		get_tree().quit(1)
 		return
 	GameState.set_meta("smoke_restarted", true)
-	main._restart()
+	main._new_run()
