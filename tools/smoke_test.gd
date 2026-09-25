@@ -105,6 +105,53 @@ func _run() -> void:
 		stacks += v
 	_check("key 1 picks upgrade", not menu.visible and not get_tree().paused and stacks == 1, str(GameState.stacks))
 
+	# Regression (phone bug): holding the stick when the upgrade menu pops up, lifting the finger
+	# while paused, then picking a card must not leave the stick stuck — and a new touch must work.
+	touch.index = 0
+	touch.pressed = true
+	touch.position = c
+	vp.push_input(touch, true)
+	drag.position = c + Vector2(70, 70)
+	vp.push_input(drag, true)
+	await _frames(3)
+	GameState.add_xp(GameState.xp_needed)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	touch.pressed = false
+	touch.position = c + Vector2(70, 70)
+	vp.push_input(touch, true)  # finger lifts while the menu has the game paused
+	await get_tree().create_timer(0.5).timeout
+	vp.push_input(key, true)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await _frames(3)
+	_check("stick released after menu", GameState.touch_move == Vector2.ZERO and not get_tree().paused, str(GameState.touch_move))
+	var touch2 := InputEventScreenTouch.new()
+	touch2.index = 3  # browsers may hand out a fresh touch index
+	touch2.pressed = true
+	touch2.position = c
+	vp.push_input(touch2, true)
+	var drag2 := InputEventScreenDrag.new()
+	drag2.index = 3
+	drag2.position = c + Vector2(-90, 0)
+	vp.push_input(drag2, true)
+	await _frames(3)
+	_check("new touch drives stick", GameState.touch_move.x < -0.9, str(GameState.touch_move))
+	touch2.pressed = false
+	vp.push_input(touch2, true)
+	await _frames(2)
+
+	# The corner from the bug report: right wall + crate stack. Ram it, then drive back out.
+	player.global_position = Vector2(630, 540)
+	GameState.touch_move = Vector2(0.707, 0.707)
+	await _frames(60)
+	var wedged := player.global_position
+	GameState.touch_move = Vector2(-0.707, -0.707)
+	await _frames(30)
+	GameState.touch_move = Vector2.ZERO
+	_check("escapes right-wall crate corner", wedged.distance_to(player.global_position) > 150.0,
+		"%s -> %s" % [wedged.round(), player.global_position.round()])
+
 	if _failures:
 		print("SMOKE TEST DONE  failures=%d" % _failures)
 		get_tree().quit(1)

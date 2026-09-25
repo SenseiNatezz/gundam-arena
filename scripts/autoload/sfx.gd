@@ -29,6 +29,13 @@ func play(sound: StringName, volume_db := 0.0, pitch_jitter := 0.06) -> void:
 	player.play()
 
 
+## Plays every sound once, silently. Web builds register each sample with the browser on first
+## play, which can stall a frame mid-fight; doing it during the intro avoids that.
+func warm_up() -> void:
+	for sound in _streams:
+		play(sound, -80.0, 0.0)
+
+
 func _free_player() -> AudioStreamPlayer:
 	for i in _players.size():
 		var p := _players[(_next + i) % _players.size()]

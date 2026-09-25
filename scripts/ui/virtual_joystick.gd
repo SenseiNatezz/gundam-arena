@@ -1,20 +1,37 @@
 extends Control
 ## On-screen stick (bottom-left). Touches anywhere in the lower-left of the screen grab it.
 ## Writes GameState.touch_move in the -1..1 range.
+##
+## Runs while the game is paused so it still sees the finger lift when a menu pops up mid-drag,
+## and any new touch in the zone takes over (a missed release can never leave the stick stuck).
 
 const RADIUS := 86.0
 const DEADZONE := 0.12
 
 var _touch := -1
 var _knob := Vector2.ZERO
+var _was_paused := false
+
+
+func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
+
+
+func _process(_delta: float) -> void:
+	# A menu opening or closing resets the stick; the player re-touches to move again.
+	var paused := get_tree().paused
+	if paused != _was_paused:
+		_was_paused = paused
+		_release()
 
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
-		if event.pressed and _touch == -1 and _in_zone(event.position):
-			_touch = event.index
-			_update(event.position)
-		elif not event.pressed and event.index == _touch:
+		if event.pressed:
+			if _in_zone(event.position):
+				_touch = event.index
+				_update(event.position)
+		elif event.index == _touch:
 			_release()
 	elif event is InputEventScreenDrag and event.index == _touch:
 		_update(event.position)
@@ -32,7 +49,8 @@ func _center() -> Vector2:
 func _update(pos: Vector2) -> void:
 	_knob = (pos - _center()).limit_length(RADIUS)
 	var v := _knob / RADIUS
-	GameState.touch_move = v if v.length() > DEADZONE else Vector2.ZERO
+	# While paused (upgrade / pause menu) only track the finger; don't feed movement.
+	GameState.touch_move = v if v.length() > DEADZONE and not get_tree().paused else Vector2.ZERO
 	queue_redraw()
 
 
@@ -44,8 +62,9 @@ func _release() -> void:
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_EXIT_TREE:
-		GameState.touch_move = Vector2.ZERO
+	match what:
+		NOTIFICATION_EXIT_TREE, NOTIFICATION_APPLICATION_FOCUS_OUT, NOTIFICATION_WM_WINDOW_FOCUS_OUT:
+			_release()
 
 
 func _draw() -> void:

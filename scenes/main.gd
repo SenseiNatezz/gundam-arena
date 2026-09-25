@@ -83,6 +83,7 @@ func _ready() -> void:
 	pause_menu.secondary_pressed.connect(_restart)
 	end_screen.primary_pressed.connect(_restart)
 	hud.show_banner("MISSION START", "Clear %d waves" % GameState.TOTAL_WAVES, Color(0.6, 0.85, 1.0), 1.0)
+	_warm_up()
 	_parse_debug_args()
 
 
@@ -96,6 +97,13 @@ func _process(delta: float) -> void:
 	camera.offset = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * 22.0 * amount
 	camera.rotation = randf_range(-1, 1) * 0.015 * amount
 	danger_tint.color.a = lerpf(danger_tint.color.a, _tint_target, 1.0 - exp(-8.0 * delta))
+
+
+func _notification(what: int) -> void:
+	# Phones: switching apps / locking the screen pauses instead of letting enemies keep shooting.
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and is_node_ready() and not get_tree().paused \
+			and _state in [&"intro", &"fighting", &"between"]:
+		_toggle_pause()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -310,6 +318,38 @@ func shake(amount: float) -> void:
 
 func set_danger_tint(alpha: float) -> void:
 	_tint_target = alpha
+
+
+## Draws one of everything almost invisibly (behind the top HUD) during the intro banner, so the
+## browser compiles shaders / particle programs, uploads enemy textures and rasterizes damage-number
+## glyphs up front. Without this, the web build hitches the first time each effect appears.
+func _warm_up() -> void:
+	var warm := Node2D.new()
+	warm.position = Vector2(360, 56)
+	warm.modulate.a = 0.02
+	fx.add_child(warm)
+	warm.add_child(EXPLOSION.instantiate())
+	for scene: PackedScene in [PLAYER_BULLET, ENEMY_BULLET, MISSILE]:
+		var b: Bullet = scene.instantiate()
+		b.monitoring = false
+		warm.add_child(b)
+		b.set_physics_process(false)
+		b.show()
+		var trail := b.get_node_or_null("Trail") as GPUParticles2D
+		if trail:
+			trail.emitting = true
+	for type in ENEMY_SCENES:
+		var enemy: Node = ENEMY_SCENES[type].instantiate()
+		warm.add_child(enemy.get_node("Sprite").duplicate())
+		enemy.free()
+	for style in [[false, false], [true, false], [false, true]]:
+		var label := DAMAGE_NUMBER.instantiate()
+		warm.add_child(label)
+		label.setup(0.0, style[0], style[1])
+		label.text = "-0123456789!"
+	spawn_hit_spark(Vector2(360, 56), Color(1, 1, 1, 0.02))
+	Sfx.warm_up()
+	get_tree().create_timer(1.5, false).timeout.connect(warm.queue_free)
 
 
 # --- level ups / pause / end ---------------------------------------------------------------
