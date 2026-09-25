@@ -43,6 +43,14 @@ func _draw() -> void:
 			draw_colored_polygon(PackedVector2Array([
 				c + Vector2(6, -32) * s, c + Vector2(-16, 4) * s, c + Vector2(-2, 4) * s,
 				c + Vector2(-8, 32) * s, c + Vector2(16, -6) * s, c + Vector2(2, -6) * s]), color)
+		"cannon":
+			var o := c + Vector2(-26, 22) * s
+			var d := Vector2(1, -1).normalized()
+			draw_line(o + d * 16 * s, o + d * 80 * s, Color(1, 0.3, 0.85, 0.45), 26 * s)
+			draw_line(o + d * 16 * s, o + d * 80 * s, Color(0.4, 0.9, 1, 0.9), 14 * s)
+			draw_line(o + d * 16 * s, o + d * 80 * s, Color(1, 1, 1), 5 * s)
+			draw_line(o - d * 4 * s, o + d * 18 * s, Color(0.75, 0.8, 0.9), 16 * s)
+			draw_circle(o + d * 18 * s, 10 * s, Color(1, 0.7, 0.95))
 		"armor":
 			draw_colored_polygon(PackedVector2Array([c + Vector2(-24, -24) * s, c + Vector2(24, -24) * s, c + Vector2(20, 10) * s, c + Vector2(0, 30) * s, c + Vector2(-20, 10) * s]), Color(color, 0.35))
 			draw_rect(Rect2(c + Vector2(-4, -16) * s, Vector2(8, 30) * s), color)

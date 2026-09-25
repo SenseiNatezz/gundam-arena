@@ -1,7 +1,7 @@
 # Renders the Gundam from Gundam_2D_Sprites.blend as top-down sprites and packs them into a sheet.
 # Usage (never saves the .blend):
 #   blender -b "path/to/Gundam_2D_Sprites.blend" --python tools/render_gundam.py
-import bpy, math, os, json
+import bpy, math, os, json, sys
 import numpy as np
 from mathutils import Vector
 from bpy_extras.object_utils import world_to_camera_view
@@ -23,7 +23,10 @@ ANIMS = [
     ("bank_right", "Bank_Right", 6, True, 10),
     ("dash", "Dash_Forward", 6, False, 18),
     ("fire", "Rifle_Fire", 4, True, 16),
+    ("aim", "Aim_Rifle", 6, False, 14),
 ]
+# Frames already in assets/raw/gundam are reused (delete them or pass --force to re-render).
+FORCE = "--force" in sys.argv
 
 s = bpy.context.scene
 s.render.resolution_x = s.render.resolution_y = CELL
@@ -72,10 +75,14 @@ for name, action, count, loop, fps in ANIMS:
         f = start + (span * i / count if loop else span * i / max(count - 1, 1))
         s.frame_set(int(round(f)))
         path = os.path.join(RAW, f"{name}_{i}.png")
-        s.render.filepath = path
-        bpy.ops.render.render(write_still=True)
+        if FORCE or not os.path.exists(path):
+            s.render.filepath = path
+            bpy.ops.render.render(write_still=True)
+            print("RENDERED", name, i, "frame", int(round(f)))
         files.append(path)
-        print("RENDERED", name, i, "frame", int(round(f)))
+        if name == "aim" and i == count - 1:
+            rifle = eval_verts("Rifle")
+            meta["aim_muzzle_px"] = project_px(Vector(rifle[np.argmin(rifle[:, 1])]))
         if name == "idle" and i == 0:
             rifle = eval_verts("Rifle")
             muzzle = rifle[np.argmin(rifle[:, 1])]  # furthest forward (-Y) point of the rifle

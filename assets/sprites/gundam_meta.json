@@ -30,6 +30,11 @@
       "count": 4,
       "loop": true,
       "fps": 16
+    },
+    "aim": {
+      "count": 6,
+      "loop": false,
+      "fps": 14
     }
   },
   "muzzle_px": [
@@ -47,5 +52,9 @@
   "center_px": [
     128.0,
     128.0
+  ],
+  "aim_muzzle_px": [
+    202.7109832763672,
+    -2.2557373046875
   ]
 }

@@ -17,6 +17,8 @@ signal died(enemy: Enemy)
 
 var hp := 0.0
 var dead := false
+## Body radius (from the collision circle); used by area attacks like the Hyper Mega Cannon.
+var hit_radius := 26.0
 var entering := true
 var enter_target := Vector2.ZERO
 var t := 0.0
@@ -31,6 +33,9 @@ func _ready() -> void:
 	hp = max_hp
 	t = randf() * 10.0
 	add_to_group("enemies")
+	var shape := get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if shape and shape.shape is CircleShape2D:
+		hit_radius = shape.shape.radius
 
 
 func _physics_process(delta: float) -> void:

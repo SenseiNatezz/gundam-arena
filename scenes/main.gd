@@ -9,6 +9,7 @@ const XP_ORB := preload("res://scenes/xp_orb.tscn")
 const EXPLOSION := preload("res://scenes/fx/explosion.tscn")
 const DAMAGE_NUMBER := preload("res://scenes/fx/damage_number.tscn")
 const GLOW := preload("res://assets/fx/glow.tres")
+const CAMERA_HOME := Vector2(360, 640)
 const ENEMY_SCENES := {
 	&"drone": preload("res://scenes/enemies/drone.tscn"),
 	&"gunship": preload("res://scenes/enemies/gunship.tscn"),
@@ -66,6 +67,7 @@ var _state_time := 2.0
 var _wave_queue: Array = []
 var _group_timer := 0.0
 var _debug_args: Dictionary = {}
+var _cast_at := -1.0  # --cast-at: fire the special at this game time (run_time, not a timer)
 
 
 func _ready() -> void:
@@ -92,6 +94,9 @@ func _process(delta: float) -> void:
 	if get_tree().paused:
 		return
 	_update_waves(delta)
+	if _cast_at >= 0.0 and GameState.run_time >= _cast_at:
+		_cast_at = -1.0
+		GameState.special_requested = true
 	_trauma = maxf(_trauma - delta * 1.8, 0.0)
 	var amount := _trauma * _trauma
 	camera.offset = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * 22.0 * amount
@@ -312,6 +317,26 @@ func add_fx(node: Node2D) -> void:
 	fx.add_child(node)
 
 
+## Floor-level decals (drawn above the arena, below everything else).
+func add_floor_decal(node: Node2D) -> void:
+	node.z_index = -5
+	add_child(node)
+	move_child(node, $Arena.get_index() + 1)
+
+
+var _cinematic_tween: Tween
+
+## Punches the camera toward `focus` (zoom > 1) or back to the arena (focus = Vector2.ZERO).
+## Uses real time so it stays smooth during the cannon's slow-motion charge.
+func cinematic_focus(focus: Vector2, zoom: float, duration: float) -> void:
+	var target := CAMERA_HOME if focus == Vector2.ZERO else CAMERA_HOME.lerp(focus, 0.35)
+	if _cinematic_tween:
+		_cinematic_tween.kill()
+	_cinematic_tween = create_tween().set_parallel().set_ignore_time_scale()
+	_cinematic_tween.tween_property(camera, "position", target, duration).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_cinematic_tween.tween_property(camera, "zoom", Vector2.ONE * zoom, duration).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+
+
 func shake(amount: float) -> void:
 	_trauma = minf(_trauma + amount, 1.0)
 
@@ -428,11 +453,19 @@ func _restart() -> void:
 # --- debug -----------------------------------------------------------------------------
 # Command-line flags after "--", e.g.:
 #   godot --path . -- --god --autopilot --wave=5 --level=6 --hp=10 --shot=shot.png --shot-time=8
+#   --cannon (unlock the Hyper Mega Cannon)  --cast-at=S (fire it at S seconds)
 
 func _parse_debug_args() -> void:
 	for arg in OS.get_cmdline_user_args():
 		var parts := arg.trim_prefix("--").split("=", true, 1)
 		_debug_args[parts[0]] = parts[1] if parts.size() > 1 else "true"
+	# Screenshot / movie capture runs pop a window on the desktop: ignore real mouse/keyboard input
+	# (and let clicks pass through) so the recording is deterministic and can't be disturbed.
+	GameState.debug.no_input = _debug_args.has("shot") or OS.get_cmdline_args().has("--write-movie")
+	if GameState.debug.no_input:
+		get_viewport().set_disable_input(true)
+		get_window().unfocusable = true
+		get_window().mouse_passthrough = true
 	GameState.debug.god = _debug_args.has("god")
 	GameState.debug.autopilot = _debug_args.has("autopilot")
 	if _debug_args.has("level"):
@@ -455,6 +488,12 @@ func _parse_debug_args() -> void:
 			_open_upgrade_menu())
 	if _debug_args.has("pause-menu"):
 		get_tree().create_timer(1.0).timeout.connect(_toggle_pause)
+	if _debug_args.has("cannon"):
+		for u in GameState.upgrades:
+			if u.id == &"mega_cannon":
+				GameState.apply_upgrade(u)
+	if _debug_args.has("cast-at"):
+		_cast_at = float(_debug_args["cast-at"])
 	if _debug_args.has("smoke-test"):
 		add_child(load("res://tools/smoke_test.gd").new())
 	if _debug_args.has("shot"):

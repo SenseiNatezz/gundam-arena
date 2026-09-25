@@ -141,6 +141,27 @@ func _run() -> void:
 	vp.push_input(touch2, true)
 	await _frames(2)
 
+	# Hyper Mega Cannon: unlock, wait for targets, fire via the touch button, check the full cycle.
+	for u in GameState.upgrades:
+		if u.id == &"mega_cannon" and not GameState.stacks.has(u.id):
+			GameState.apply_upgrade(u)
+	player.special_cooldown_left = 0.0
+	await get_tree().create_timer(3.0).timeout  # let wave 1 fly in
+	var kills_before := GameState.kills
+	var special: Control = main.get_node("HUD/Root/SpecialButton")
+	_check("cannon button visible after unlock", special.visible)
+	var tap_special := InputEventScreenTouch.new()
+	tap_special.index = 2
+	tap_special.pressed = true
+	tap_special.position = special.get_global_rect().get_center()
+	vp.push_input(tap_special, true)
+	await _frames(3)
+	_check("cannon starts (slow-mo, rooted)", player.casting and Engine.time_scale < 0.5, "ts=%.2f" % Engine.time_scale)
+	await get_tree().create_timer(2.2, true, false, true).timeout
+	_check("cannon finishes and restores time", not player.casting and is_equal_approx(Engine.time_scale, 1.0)
+		and player.special_cooldown_left > 0.0, "ts=%.2f cd=%.1f" % [Engine.time_scale, player.special_cooldown_left])
+	_check("cannon destroyed enemies", GameState.kills > kills_before, "kills %d -> %d" % [kills_before, GameState.kills])
+
 	# The corner from the bug report: right wall + crate stack. Ram it, then drive back out.
 	player.global_position = Vector2(630, 540)
 	GameState.touch_move = Vector2(0.707, 0.707)

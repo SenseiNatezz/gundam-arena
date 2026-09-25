@@ -12,7 +12,12 @@ gunships, pick upgrades as you level up, and take down a spider-mech boss.
   *More info → Run anyway*.
 
 **Controls:** WASD / arrows or the on-screen stick to move · Space / Shift or the » button to dash ·
+E / Q or the pink cannon button to fire the Hyper Mega Cannon (once unlocked) ·
 Esc / P or the II button to pause · 1 / 2 / 3 to pick an upgrade. The mech auto-fires at the nearest enemy.
+
+**Hyper Mega Cannon:** a special unlocked from a guaranteed upgrade card at level 4. Time slows as the
+Gundam charges, then it fires a hand-drawn-style beam that sweeps toward enemies. Recharges in ~14s;
+extra picks add damage and recharge faster. Tweak its size and colours on `scenes/abilities/mega_cannon.tscn`.
 
 ## Development
 

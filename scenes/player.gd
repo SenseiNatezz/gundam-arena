@@ -10,12 +10,17 @@ const SHIELD_RECHARGE := 7.0
 const MISSILE_INTERVAL := 1.4
 const BOUNDS := Rect2(78, 200, 564, 1030)
 const AIM_RANGE := 1000.0
+const MEGA_CANNON := preload("res://scenes/abilities/mega_cannon.tscn")
+const SPECIAL_COOLDOWN := 14.0
 
 var hp := 100.0
 var dead := false
 var aim_angle := -PI / 2
 var dash_cooldown_left := 0.0
 var shield_charges := 0
+## Hyper Mega Cannon: unlocked by the upgrade (stats.cannon >= 1).
+var special_cooldown_left := 0.0
+var casting := false
 
 var _move_velocity := Vector2.ZERO
 var _knockback := Vector2.ZERO
@@ -34,6 +39,7 @@ var _target: Node2D
 @onready var body: Node2D = $Body
 @onready var sprite: AnimatedSprite2D = $Body/Sprite
 @onready var muzzle: Marker2D = $Body/Muzzle
+@onready var cannon_muzzle: Marker2D = $Body/CannonMuzzle
 @onready var muzzle_flash: Sprite2D = $Body/MuzzleFlash
 @onready var thrusters: Array[GPUParticles2D] = [$Body/ThrusterL, $Body/ThrusterR]
 @onready var hurtbox: Area2D = $Hurtbox
@@ -53,15 +59,33 @@ func _physics_process(delta: float) -> void:
 	if dead:
 		return
 	var s := GameState.stats
-	var input := Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	var live_input: bool = not GameState.debug.no_input
+	var input := Input.get_vector("move_left", "move_right", "move_up", "move_down") if live_input else Vector2.ZERO
 	if GameState.touch_move != Vector2.ZERO:
 		input = GameState.touch_move
 	if GameState.debug.autopilot:
 		input = _autopilot_input()
 
 	dash_cooldown_left = maxf(dash_cooldown_left - delta, 0.0)
+	special_cooldown_left = maxf(special_cooldown_left - delta, 0.0)
 	_invuln -= delta
-	var dash_pressed := Input.is_action_just_pressed("dash") or GameState.consume_dash_request()
+	if casting:
+		# Rooted while the cannon fires; the MegaCannon node drives aim and recoil.
+		_move_velocity = Vector2.ZERO
+		velocity = _knockback
+		_knockback = _knockback.lerp(Vector2.ZERO, 1.0 - exp(-10.0 * delta))
+		move_and_slide()
+		GameState.consume_dash_request()
+		GameState.consume_special_request()
+		_check_contact_damage()
+		return
+	var special_pressed := (live_input and Input.is_action_just_pressed("special")) or GameState.consume_special_request()
+	if GameState.debug.autopilot and special_ready() and GameState.world.nearest_enemy(global_position, 900.0):
+		special_pressed = true
+	if special_pressed and special_ready():
+		start_special()
+		return
+	var dash_pressed := (live_input and Input.is_action_just_pressed("dash")) or GameState.consume_dash_request()
 	if dash_pressed and dash_cooldown_left <= 0.0:
 		_start_dash(input)
 
@@ -128,6 +152,41 @@ func _fire() -> void:
 	Sfx.play(&"shoot", -17.0)
 
 
+# --- special: Hyper Mega Cannon ------------------------------------------------------
+
+func special_unlocked() -> bool:
+	return GameState.stats.cannon >= 1
+
+
+func special_cooldown_total() -> float:
+	return SPECIAL_COOLDOWN * pow(0.8, maxf(GameState.stats.cannon - 1, 0.0))
+
+
+func special_ready() -> bool:
+	return special_unlocked() and special_cooldown_left <= 0.0 and not casting and not dead and _dash_time_left <= 0.0
+
+
+func start_special() -> void:
+	casting = true
+	_invuln = 999.0
+	_knockback = Vector2.ZERO
+	sprite.play(&"aim")
+	for t in thrusters:
+		t.amount_ratio = 1.0
+	var cannon := MEGA_CANNON.instantiate()
+	cannon.player = self
+	cannon.power = 1.0 + 0.4 * (GameState.stats.cannon - 1)
+	cannon.finished.connect(_on_special_finished)
+	GameState.world.add_fx(cannon)
+
+
+func _on_special_finished() -> void:
+	casting = false
+	_invuln = 0.4
+	special_cooldown_left = special_cooldown_total()
+	sprite.play(&"idle")
+
+
 # --- dash / shield / damage -------------------------------------------------------
 
 func _start_dash(input: Vector2) -> void:
@@ -174,7 +233,7 @@ func _check_contact_damage() -> void:
 
 
 func take_damage(amount: float, from_pos: Vector2) -> void:
-	if dead or _invuln > 0.0 or _dash_time_left > 0.0 or GameState.debug.god:
+	if dead or _invuln > 0.0 or _dash_time_left > 0.0 or casting or GameState.debug.god:
 		return
 	_knockback = (global_position - from_pos).normalized() * 520.0
 	if shield_charges > 0:

@@ -24,6 +24,7 @@ const BASE_STATS := {
 	"shield": 0,
 	"homing": 0,
 	"magnet": 130.0,
+	"cannon": 0,
 }
 const UPGRADE_PATHS := [
 	"res://resources/upgrades/triple_shot.tres",
@@ -34,6 +35,7 @@ const UPGRADE_PATHS := [
 	"res://resources/upgrades/homing.tres",
 	"res://resources/upgrades/power.tres",
 	"res://resources/upgrades/armor.tres",
+	"res://resources/upgrades/mega_cannon.tres",
 ]
 
 var upgrades: Array[Upgrade] = []
@@ -55,9 +57,10 @@ var player: Node2D
 ## Written by on-screen touch controls, read by the player.
 var touch_move := Vector2.ZERO
 var dash_requested := false
+var special_requested := false
 
 ## Command-line debug flags (see Main._parse_debug_args).
-var debug := {"god": false, "autopilot": false}
+var debug := {"god": false, "autopilot": false, "no_input": false}
 
 
 func _ready() -> void:
@@ -84,6 +87,7 @@ func reset() -> void:
 	run_time = 0.0
 	touch_move = Vector2.ZERO
 	dash_requested = false
+	special_requested = false
 
 
 func _xp_for(lv: int) -> int:
@@ -104,11 +108,17 @@ func add_xp(amount: int) -> void:
 
 func roll_upgrades(count := 3) -> Array[Upgrade]:
 	var pool: Array[Upgrade] = []
+	var featured: Array[Upgrade] = []
 	for u in upgrades:
-		if stacks.get(u.id, 0) < u.max_stacks:
+		if stacks.get(u.id, 0) >= u.max_stacks or level < u.min_level:
+			continue
+		# Featured unlocks (e.g. the Hyper Mega Cannon) are guaranteed a slot until first taken.
+		if u.featured and not stacks.has(u.id):
+			featured.append(u)
+		else:
 			pool.append(u)
 	pool.shuffle()
-	return pool.slice(0, count)
+	return (featured + pool).slice(0, count)
 
 
 func apply_upgrade(u: Upgrade) -> void:
@@ -123,4 +133,10 @@ func apply_upgrade(u: Upgrade) -> void:
 func consume_dash_request() -> bool:
 	var requested := dash_requested
 	dash_requested = false
+	return requested
+
+
+func consume_special_request() -> bool:
+	var requested := special_requested
+	special_requested = false
 	return requested

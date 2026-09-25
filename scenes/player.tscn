@@ -89,6 +89,9 @@ autoplay = "idle"
 [node name="Muzzle" type="Marker2D" parent="Body"]
 position = Vector2(51.5, -72)
 
+[node name="CannonMuzzle" type="Marker2D" parent="Body"]
+position = Vector2(49.3, -84)
+
 [node name="MuzzleFlash" type="Sprite2D" parent="Body"]
 visible = false
 modulate = Color(0.55, 0.88, 1, 1)
