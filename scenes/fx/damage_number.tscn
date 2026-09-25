@@ -1,0 +1,22 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scenes/fx/damage_number.gd" id="1"]
+
+[sub_resource type="LabelSettings" id="settings"]
+font_size = 28
+font_color = Color(1, 0.55, 0.5, 1)
+outline_size = 7
+outline_color = Color(0.25, 0, 0, 0.95)
+
+[node name="DamageNumber" type="Label"]
+z_index = 20
+offset_left = -70.0
+offset_top = -22.0
+offset_right = 70.0
+offset_bottom = 22.0
+mouse_filter = 2
+text = "-0"
+label_settings = SubResource("settings")
+horizontal_alignment = 1
+vertical_alignment = 1
+script = ExtResource("1")

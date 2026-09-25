@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="Upgrade" format=3]
+
+[ext_resource type="Script" path="res://scripts/upgrade.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"shield"
+title = "I-Field Shield"
+description = "Blocks one hit. Recharges every 7s."
+icon = "shield"
+color = Color(0.3, 1, 0.85, 1)
+max_stacks = 3
+add_stats = {"shield": 1}
+mul_stats = {}

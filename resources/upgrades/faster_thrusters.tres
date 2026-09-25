@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="Upgrade" format=3]
+
+[ext_resource type="Script" path="res://scripts/upgrade.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"faster_thrusters"
+title = "Faster Thrusters"
+description = "+15% move speed, -20% dash cooldown."
+icon = "thrusters"
+color = Color(0.4, 0.85, 1, 1)
+max_stacks = 3
+add_stats = {}
+mul_stats = {"move_speed": 1.15, "dash_cooldown": 0.8}

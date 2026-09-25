@@ -1,0 +1,34 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scenes/bullet.gd" id="1"]
+[ext_resource type="Texture2D" path="res://assets/fx/glow.tres" id="2"]
+
+[sub_resource type="CanvasItemMaterial" id="add"]
+blend_mode = 1
+
+[sub_resource type="CircleShape2D" id="shape"]
+radius = 9.0
+
+[node name="EnemyBullet" type="Area2D"]
+collision_layer = 16
+collision_mask = 2
+monitorable = false
+script = ExtResource("1")
+player_owned = false
+lifetime = 4.0
+spark_color = Color(1, 0.35, 0.25, 1)
+
+[node name="Glow" type="Sprite2D" parent="."]
+modulate = Color(1, 0.15, 0.08, 0.95)
+material = SubResource("add")
+scale = Vector2(0.7, 0.7)
+texture = ExtResource("2")
+
+[node name="Core" type="Sprite2D" parent="."]
+modulate = Color(1, 0.85, 0.75, 1)
+material = SubResource("add")
+scale = Vector2(0.28, 0.28)
+texture = ExtResource("2")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("shape")

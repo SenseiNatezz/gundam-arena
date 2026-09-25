@@ -1,0 +1,58 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scenes/enemies/boss.gd" id="1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/boss.png" id="2"]
+[ext_resource type="Shader" path="res://shaders/hit_flash.gdshader" id="3"]
+[ext_resource type="Texture2D" path="res://assets/fx/glow.tres" id="4"]
+[ext_resource type="Script" path="res://scenes/enemies/boss_telegraph.gd" id="5"]
+
+[sub_resource type="ShaderMaterial" id="flash_mat"]
+resource_local_to_scene = true
+shader = ExtResource("3")
+shader_parameter/flash = 0.0
+shader_parameter/flash_color = Color(1, 0.85, 0.8, 1)
+
+[sub_resource type="CanvasItemMaterial" id="add"]
+blend_mode = 1
+
+[sub_resource type="CircleShape2D" id="shape"]
+radius = 78.0
+
+[node name="Boss" type="Area2D"]
+collision_layer = 4
+collision_mask = 4
+script = ExtResource("1")
+max_hp = 8000.0
+move_speed = 70.0
+contact_damage = 25.0
+xp_orbs = 20
+xp_value = 3
+explosion_size = 2.5
+knockback_resist = 1.0
+frames = 4
+anim_fps = 6.0
+
+[node name="Telegraph" type="Node2D" parent="."]
+script = ExtResource("5")
+
+[node name="Shadow" type="Sprite2D" parent="."]
+modulate = Color(0, 0, 0, 0.5)
+position = Vector2(16, 24)
+scale = Vector2(5.5, 5.5)
+texture = ExtResource("4")
+
+[node name="Sprite" type="Sprite2D" parent="."]
+material = SubResource("flash_mat")
+scale = Vector2(0.62, 0.62)
+texture = ExtResource("2")
+hframes = 4
+
+[node name="Core" type="Sprite2D" parent="."]
+modulate = Color(1, 0.2, 0.1, 0.8)
+material = SubResource("add")
+position = Vector2(0, -10)
+scale = Vector2(1.2, 1.2)
+texture = ExtResource("4")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("shape")

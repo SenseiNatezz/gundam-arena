@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="Upgrade" format=3]
+
+[ext_resource type="Script" path="res://scripts/upgrade.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"attack_speed"
+title = "+25% Attack Speed"
+description = "Beam rifle cycles faster."
+icon = "speed"
+color = Color(1, 0.72, 0.2, 1)
+max_stacks = 5
+add_stats = {}
+mul_stats = {"fire_rate": 1.25}

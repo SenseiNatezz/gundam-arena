@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="Upgrade" format=3]
+
+[ext_resource type="Script" path="res://scripts/upgrade.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"triple_shot"
+title = "Triple Shot"
+description = "Fire 2 extra beam bolts in a spread."
+icon = "triple"
+color = Color(0.35, 0.75, 1, 1)
+max_stacks = 2
+add_stats = {"multishot": 2}
+mul_stats = {}

@@ -1,0 +1,51 @@
+{
+  "cell": 256,
+  "anims": {
+    "idle": {
+      "count": 8,
+      "loop": true,
+      "fps": 8
+    },
+    "boost": {
+      "count": 6,
+      "loop": true,
+      "fps": 12
+    },
+    "bank_left": {
+      "count": 6,
+      "loop": true,
+      "fps": 10
+    },
+    "bank_right": {
+      "count": 6,
+      "loop": true,
+      "fps": 10
+    },
+    "dash": {
+      "count": 6,
+      "loop": false,
+      "fps": 18
+    },
+    "fire": {
+      "count": 4,
+      "loop": true,
+      "fps": 16
+    }
+  },
+  "muzzle_px": [
+    205.96087646484375,
+    19.360366821289062
+  ],
+  "thruster_left_px": [
+    172.43896484375,
+    169.80677032470703
+  ],
+  "thruster_right_px": [
+    82.24208068847656,
+    169.61300659179688
+  ],
+  "center_px": [
+    128.0,
+    128.0
+  ]
+}
