@@ -99,6 +99,7 @@ their scene setup and helpers through `tools/enemy_kit.py`.
 
 Pass after `--`: `--god`, `--autopilot` (dodging bot, auto-picks upgrades and advances levels),
 `--stage=N`, `--wave=N`, `--level=N`, `--hp=N`, `--boss-hp=0.5`, `--damage-cover`, `--beam-at=S`, `--saber-at=S`, `--demo-ring`,
+`--upgrades=homing,homing`, `--preview-zoom=1.6`,
 `--upgrade-menu`, `--pause-menu`, `--shot=path.png --shot-time=S` (screenshot then quit).
 
 Input smoke test: `Godot..._console.exe --headless --path . -- --smoke-test --god`

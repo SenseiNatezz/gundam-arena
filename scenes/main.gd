@@ -139,6 +139,7 @@ var _eruption_timer := 3.0
 var _beam_at := -1.0  # --beam-at: fire the Beam Rifle at this game time (for previews)
 var _saber_at := -1.0  # --saber-at: swing the Beam Saber at this game time (for previews)
 var _demo_ring_at := -1.0  # --demo-ring: drop a ring of drones around the mech (for previews)
+var _preview_zoom := 0.0  # --preview-zoom: camera follows the mech up close (for previews)
 ## Set by the Beam Rifle while it deals damage so its hits get the big number style.
 var big_damage_numbers := false
 
@@ -209,6 +210,9 @@ func _process(delta: float) -> void:
 	_trauma = maxf(_trauma - delta * 1.8, 0.0)
 	var amount := _trauma * _trauma
 	camera.offset = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * 22.0 * amount
+	if _preview_zoom > 0.0:
+		camera.zoom = Vector2.ONE * _preview_zoom
+		camera.position = player.global_position + Vector2(0, -40)
 	camera.rotation = randf_range(-1, 1) * 0.015 * amount
 	danger_tint.color.a = lerpf(danger_tint.color.a, _tint_target, 1.0 - exp(-8.0 * delta))
 
@@ -664,6 +668,14 @@ func _parse_debug_args() -> void:
 		_beam_at = float(_debug_args["beam-at"])
 	if _debug_args.has("saber-at"):
 		_saber_at = float(_debug_args["saber-at"])
+	if _debug_args.has("upgrades"):
+		# e.g. --upgrades=homing,homing,triple_shot
+		for id in str(_debug_args["upgrades"]).split(","):
+			for u in GameState.upgrades:
+				if u.id == StringName(id):
+					GameState.apply_upgrade(u)
+	if _debug_args.has("preview-zoom"):
+		_preview_zoom = float(_debug_args["preview-zoom"])
 	if _debug_args.has("demo-ring"):
 		_demo_ring_at = float(_debug_args["demo-ring"]) if _debug_args["demo-ring"] != "true" else 4.0
 	if _debug_args.has("damage-cover"):

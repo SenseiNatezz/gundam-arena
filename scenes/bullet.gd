@@ -12,6 +12,8 @@ const LIVE_AREA := Rect2(-100, -250, 920, 1650)
 @export var spark_color := Color(0.5, 0.85, 1.0)
 ## Fire damage (reduced by the Heat Shield upgrade).
 @export var heat := false
+## Player rockets: size of the small explosion on impact (0 = just a hit spark).
+@export var impact_explosion := 0.0
 
 var active := false
 var velocity := Vector2.ZERO
@@ -76,6 +78,9 @@ func _on_area_entered(area: Area2D) -> void:
 			_hit.append(area)
 			area.take_damage(damage, crit, velocity.normalized())
 			GameState.world.spawn_hit_spark(global_position, spark_color)
+			if impact_explosion > 0.0:
+				GameState.world.spawn_explosion(global_position, impact_explosion)
+				Sfx.play(&"explode", -12.0, 0.2)
 			if pierce_left > 0:
 				pierce_left -= 1
 			else:
