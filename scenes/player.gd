@@ -10,17 +10,24 @@ const SHIELD_RECHARGE := 7.0
 const MISSILE_INTERVAL := 1.4
 const BOUNDS := Rect2(78, 200, 564, 1030)
 const AIM_RANGE := 1000.0
-const MEGA_CANNON := preload("res://scenes/abilities/mega_cannon.tscn")
-const SPECIAL_COOLDOWN := 14.0
+const BEAM_RIFLE := preload("res://scenes/abilities/beam_rifle.gd")
+const BEAM_COOLDOWN := 12.0
+const BEAM_DAMAGE_MULT := 12.0
+const SABER_SLASH := preload("res://scenes/abilities/saber_slash.gd")
+const SABER_COOLDOWN := 6.0
+const SABER_DAMAGE_MULT := 6.0
+const SABER_TIME := 0.5  # matches SaberSlash.DURATION
 
 var hp := 100.0
 var dead := false
 var aim_angle := -PI / 2
 var dash_cooldown_left := 0.0
 var shield_charges := 0
-## Hyper Mega Cannon: unlocked by the upgrade (stats.cannon >= 1).
-var special_cooldown_left := 0.0
-var casting := false
+## Beam Rifle special (E / Q or the HUD button). Ready at the start of every level.
+var beam_cooldown_left := 0.0
+## Beam Saber spin slash (F / R or the HUD button).
+var saber_cooldown_left := 0.0
+var _slash_time_left := 0.0
 
 var _move_velocity := Vector2.ZERO
 var _knockback := Vector2.ZERO
@@ -39,7 +46,6 @@ var _target: Node2D
 @onready var body: Node2D = $Body
 @onready var sprite: AnimatedSprite2D = $Body/Sprite
 @onready var muzzle: Marker2D = $Body/Muzzle
-@onready var cannon_muzzle: Marker2D = $Body/CannonMuzzle
 @onready var muzzle_flash: Sprite2D = $Body/MuzzleFlash
 @onready var thrusters: Array[GPUParticles2D] = [$Body/ThrusterL, $Body/ThrusterR]
 @onready var hurtbox: Area2D = $Hurtbox
@@ -53,6 +59,14 @@ func _ready() -> void:
 	shield_charges = GameState.stats.shield
 	GameState.stats_changed.connect(_on_stats_changed)
 	GameState.hp_changed.emit.call_deferred(hp, _max_hp)
+	# Sword swing sprites live in their own sheet (tools/render_gundam_sword.py); merge them in.
+	if not sprite.sprite_frames.has_animation(&"slash"):
+		var sword: SpriteFrames = load("res://assets/sprites/gundam_sword_frames.tres")
+		sprite.sprite_frames.add_animation(&"slash")
+		sprite.sprite_frames.set_animation_loop(&"slash", false)
+		sprite.sprite_frames.set_animation_speed(&"slash", sword.get_animation_speed(&"slash"))
+		for i in sword.get_frame_count(&"slash"):
+			sprite.sprite_frames.add_frame(&"slash", sword.get_frame_texture(&"slash", i))
 
 
 func _physics_process(delta: float) -> void:
@@ -67,24 +81,19 @@ func _physics_process(delta: float) -> void:
 		input = _autopilot_input()
 
 	dash_cooldown_left = maxf(dash_cooldown_left - delta, 0.0)
-	special_cooldown_left = maxf(special_cooldown_left - delta, 0.0)
 	_invuln -= delta
-	if casting:
-		# Rooted while the cannon fires; the MegaCannon node drives aim and recoil.
-		_move_velocity = Vector2.ZERO
-		velocity = _knockback
-		_knockback = _knockback.lerp(Vector2.ZERO, 1.0 - exp(-10.0 * delta))
-		move_and_slide()
-		GameState.consume_dash_request()
-		GameState.consume_special_request()
-		_check_contact_damage()
-		return
-	var special_pressed := (live_input and Input.is_action_just_pressed("special")) or GameState.consume_special_request()
-	if GameState.debug.autopilot and special_ready() and GameState.world.nearest_enemy(global_position, 900.0):
-		special_pressed = true
-	if special_pressed and special_ready():
-		start_special()
-		return
+	beam_cooldown_left = maxf(beam_cooldown_left - delta, 0.0)
+	var beam_pressed := (live_input and Input.is_action_just_pressed("special")) or GameState.consume_special_request()
+	if GameState.debug.autopilot and beam_ready() and GameState.world.nearest_enemy(global_position, AIM_RANGE):
+		beam_pressed = true
+	if beam_pressed and beam_ready():
+		fire_beam()
+	saber_cooldown_left = maxf(saber_cooldown_left - delta, 0.0)
+	var saber_pressed := (live_input and Input.is_action_just_pressed("saber")) or GameState.consume_saber_request()
+	if GameState.debug.autopilot and saber_ready() and GameState.world.nearest_enemy(global_position, 170.0):
+		saber_pressed = true
+	if saber_pressed and saber_ready():
+		start_slash()
 	var dash_pressed := (live_input and Input.is_action_just_pressed("dash")) or GameState.consume_dash_request()
 	if dash_pressed and dash_cooldown_left <= 0.0:
 		_start_dash(input)
@@ -104,6 +113,11 @@ func _physics_process(delta: float) -> void:
 	global_position = global_position.clamp(BOUNDS.position, BOUNDS.end)
 
 	_update_weapons(delta)
+	if _slash_time_left > 0.0:
+		# The mech spins with the blade.
+		_slash_time_left -= delta
+		var spin := 1.0 - clampf(_slash_time_left / SABER_TIME, 0.0, 1.0)
+		body.rotation = aim_angle + PI / 2 + TAU * 1.05 * ease(spin, 0.55)
 	_update_shield(delta)
 	_check_contact_damage()
 	_update_visuals(delta, input)
@@ -152,43 +166,55 @@ func _fire() -> void:
 	Sfx.play(&"shoot", -17.0)
 
 
-# --- special: Hyper Mega Cannon ------------------------------------------------------
+# --- Beam Saber -------------------------------------------------------------------------
 
-func special_unlocked() -> bool:
-	return GameState.stats.cannon >= 1
-
-
-func special_cooldown_total() -> float:
-	return SPECIAL_COOLDOWN * pow(0.8, maxf(GameState.stats.cannon - 1, 0.0))
+func saber_ready() -> bool:
+	return saber_cooldown_left <= 0.0 and not dead and _slash_time_left <= 0.0
 
 
-func special_ready() -> bool:
-	return special_unlocked() and special_cooldown_left <= 0.0 and not casting and not dead and _dash_time_left <= 0.0
+## Spin slash: a crescent sweeps one full turn around the mech (see SaberSlash).
+func start_slash() -> void:
+	var slash := Node2D.new()
+	slash.set_script(SABER_SLASH)
+	slash.set("damage", GameState.stats.damage * SABER_DAMAGE_MULT)
+	slash.set("start_angle", aim_angle)
+	add_child(slash)
+	saber_cooldown_left = SABER_COOLDOWN
+	_slash_time_left = SABER_TIME
+	_invuln = maxf(_invuln, SABER_TIME + 0.1)  # untouchable mid-spin
+	_fire_cooldown = SABER_TIME
+	sprite.play(&"slash")
 
 
-func start_special() -> void:
-	casting = true
-	_invuln = 999.0
-	_knockback = Vector2.ZERO
-	sprite.play(&"aim")
-	for t in thrusters:
-		t.amount_ratio = 1.0
-	var cannon := MEGA_CANNON.instantiate()
-	cannon.player = self
-	cannon.power = 1.0 + 0.4 * (GameState.stats.cannon - 1)
-	cannon.finished.connect(_on_special_finished)
-	GameState.world.add_fx(cannon)
+# --- Beam Rifle -------------------------------------------------------------------------
+
+func beam_ready() -> bool:
+	return beam_cooldown_left <= 0.0 and not dead
+
+
+## Fires a piercing beam from the rifle at the current target (or straight ahead).
+func fire_beam() -> void:
+	var target: Node2D = GameState.world.nearest_enemy(global_position, AIM_RANGE)
+	if target:
+		aim_angle = (target.global_position - global_position).angle()
+		body.rotation = aim_angle + PI / 2
+	var origin := muzzle.global_position
+	var dir := (target.global_position - origin).normalized() if target else Vector2.from_angle(aim_angle)
+	var beam := Node2D.new()
+	beam.set_script(BEAM_RIFLE)
+	beam.set("origin", origin)
+	beam.set("dir", dir)
+	beam.set("damage", GameState.stats.damage * BEAM_DAMAGE_MULT)
+	GameState.world.add_fx(beam)
+	beam_cooldown_left = BEAM_COOLDOWN
+	_fire_cooldown = 0.35  # brief pause in normal fire while the beam is out
+	_knockback = -dir * 280.0
+	_muzzle_time = 0.12
+	sprite.position = Vector2(0, 9)
 
 
 func make_invulnerable() -> void:
 	_invuln = INF
-
-
-func _on_special_finished() -> void:
-	casting = false
-	_invuln = 0.4
-	special_cooldown_left = special_cooldown_total()
-	sprite.play(&"idle")
 
 
 # --- dash / shield / damage -------------------------------------------------------
@@ -238,7 +264,7 @@ func _check_contact_damage() -> void:
 
 ## `heat`: fire damage (fireballs, eruptions, flame slams) - reduced by the Heat Shield upgrade.
 func take_damage(amount: float, from_pos: Vector2, heat := false) -> void:
-	if dead or _invuln > 0.0 or _dash_time_left > 0.0 or casting or GameState.debug.god:
+	if dead or _invuln > 0.0 or _dash_time_left > 0.0 or GameState.debug.god:
 		return
 	_knockback = (global_position - from_pos).normalized() * 520.0
 	if heat:
@@ -289,7 +315,9 @@ func _on_stats_changed() -> void:
 
 func _update_visuals(delta: float, input: Vector2) -> void:
 	var anim := &"idle"
-	if _dash_time_left > 0.0:
+	if _slash_time_left > 0.0:
+		anim = &"slash"
+	elif _dash_time_left > 0.0:
 		anim = &"dash"
 	elif input.length() > 0.2:
 		var local := input.rotated(-body.rotation)

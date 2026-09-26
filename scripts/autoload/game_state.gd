@@ -31,7 +31,6 @@ const BASE_STATS := {
 	"shield": 0,
 	"homing": 0,
 	"magnet": 130.0,
-	"cannon": 0,
 	"heat_resist": 0.0,
 }
 const UPGRADE_PATHS := [
@@ -43,7 +42,6 @@ const UPGRADE_PATHS := [
 	"res://resources/upgrades/homing.tres",
 	"res://resources/upgrades/power.tres",
 	"res://resources/upgrades/armor.tres",
-	"res://resources/upgrades/mega_cannon.tres",
 	"res://resources/upgrades/heat_shield.tres",
 	"res://resources/upgrades/move_speed.tres",
 ]
@@ -72,6 +70,7 @@ var player: Node2D
 var touch_move := Vector2.ZERO
 var dash_requested := false
 var special_requested := false
+var saber_requested := false
 
 ## Command-line debug flags (see Main._parse_debug_args).
 var debug := {"god": false, "autopilot": false, "no_input": false}
@@ -108,6 +107,7 @@ func begin_stage() -> void:
 	touch_move = Vector2.ZERO
 	dash_requested = false
 	special_requested = false
+	saber_requested = false
 
 
 func stage_info() -> Dictionary:
@@ -184,3 +184,10 @@ func consume_special_request() -> bool:
 	var requested := special_requested
 	special_requested = false
 	return requested
+
+
+func consume_saber_request() -> bool:
+	var requested := saber_requested
+	saber_requested = false
+	return requested
+

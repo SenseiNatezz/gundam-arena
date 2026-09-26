@@ -25,12 +25,14 @@ them) but break after a few hits. Red barrels explode when destroyed, damaging n
   *More info → Run anyway*.
 
 **Controls:** WASD / arrows or the on-screen stick to move · Space / Shift or the » button to dash ·
-E / Q or the pink cannon button to fire the Hyper Mega Cannon (once unlocked) ·
+E / Q or the BEAM RIFLE button to fire the Beam Rifle · F / R or the BEAM SABER button for a spin slash ·
 Esc / P or the II button to pause · 1 / 2 / 3 to pick an upgrade. The mech auto-fires at the nearest enemy.
 
-**Hyper Mega Cannon:** a special whose upgrade card is guaranteed at your first level-up. Time slows as
-the Gundam charges, then it fires a hand-drawn-style beam that sweeps toward enemies. Recharges in ~14s;
-extra picks add damage and recharge faster. Tweak its size and colours on `scenes/abilities/mega_cannon.tscn`.
+**Specials** (available from the start, each with a cooldown shown under its button):
+
+- **Beam Rifle** (12s): a piercing beam wrapped in crackling lightning that hits every enemy in a line.
+- **Beam Saber** (6s): the Gundam draws its energy sword and spins, sweeping a crescent of energy around
+  itself that hits every nearby enemy, knocks them back and slices enemy shots out of the air.
 
 **Upgrades** include Triple Shot, Faster Thrusters, +25% Attack Speed, Piercing Shot, I-Field Shield,
 Homing Missiles, Beam Overcharge, Reinforced Armor, +20% Move Speed and (in the Volcanic Forge) Heat Shield.
@@ -57,9 +59,9 @@ Exports: *Project → Export* has **Web** (single-threaded, works on GitHub Page
 | Path | What |
 | --- | --- |
 | `scenes/main.gd` | Per-level waves (`STAGE_WAVES`), pools, spawn helpers, eruptions, level-up / pause / end flow, debug flags |
-| `scenes/player.gd` | Movement, dash, auto-aim, missiles, shield, cannon special, damage |
+| `scenes/player.gd` | Movement, dash, auto-aim, missiles, shield, damage |
 | `scenes/enemies/` | `enemy.gd` base class, all enemy types and the three bosses (+ their telegraph drawing) |
-| `scenes/abilities/` | Hyper Mega Cannon effect and its scorch mark |
+| `scenes/abilities/` | Beam Rifle and Beam Saber effects (hit logic + drawing) |
 | `scenes/cover.gd` | Destructible cover (crates, barrels, pylons, rocks) |
 | `scenes/hazards/` | Volcanic Forge eruption tiles |
 | `scenes/bullet.gd` | Pooled projectile used by player bolts, missiles and enemy shots / fireballs |
@@ -67,7 +69,7 @@ Exports: *Project → Export* has **Web** (single-threaded, works on GitHub Page
 | `scripts/autoload/game_state.gd` | Levels (`STAGES`), base player stats (`BASE_STATS`), XP curve, upgrades |
 | `scripts/autoload/sfx.gd` | Synthesized sound effects (no audio files) |
 | `resources/upgrades/*.tres` | Upgrade definitions (`Upgrade` resource) |
-| `scripts/ui/` | HUD, virtual joystick, dash / cannon buttons, upgrade menu, pause / end overlay |
+| `scripts/ui/` | HUD, virtual joystick, dash + ability buttons, upgrade menu, pause / end overlay |
 
 **Adding an upgrade:** create a `.tres` in `resources/upgrades` (copy an existing one), set `add_stats` /
 `mul_stats` using keys from `GameState.BASE_STATS`, and add its path to `GameState.UPGRADE_PATHS`.
@@ -83,18 +85,20 @@ blender -b "path/to/Gundam_2D_Sprites.blend" --python tools/render_gundam.py
 blender -b --factory-startup --python tools/render_enemies.py
 blender -b --factory-startup --python tools/render_stage2.py
 blender -b --factory-startup --python tools/render_stage3.py
+blender -b "path/to/Gundam_Sword_2D_Sprites.blend" --python tools/render_gundam_sword.py
 ```
 
 `render_gundam.py` renders each action (Hover_Idle, Boost_Loop, Bank_Left/Right, Dash_Forward, Rifle_Fire,
 Aim_Rifle) from straight above, packs `assets/sprites/gundam_sheet.png`, and regenerates `gundam_frames.tres`
 plus `gundam_meta.json` (muzzle / thruster pixel positions used in `player.tscn`). It reuses frames already
-in `assets/raw/gundam` (pass `--force` to re-render) and never saves the .blend. The enemy scripts share
+in `assets/raw/gundam` (pass `--force` to re-render) and never saves the .blend. `render_gundam_sword.py` renders
+the Sword_Slash animation (energy sword model) into `gundam_sword_sheet.png`; the player merges it in as `slash`. The enemy scripts share
 their scene setup and helpers through `tools/enemy_kit.py`.
 
 ### Debug flags
 
 Pass after `--`: `--god`, `--autopilot` (dodging bot, auto-picks upgrades and advances levels),
-`--stage=N`, `--wave=N`, `--level=N`, `--hp=N`, `--boss-hp=0.5`, `--cannon`, `--cast-at=S`,
-`--damage-cover`, `--upgrade-menu`, `--pause-menu`, `--shot=path.png --shot-time=S` (screenshot then quit).
+`--stage=N`, `--wave=N`, `--level=N`, `--hp=N`, `--boss-hp=0.5`, `--damage-cover`, `--beam-at=S`, `--saber-at=S`, `--demo-ring`,
+`--upgrade-menu`, `--pause-menu`, `--shot=path.png --shot-time=S` (screenshot then quit).
 
 Input smoke test: `Godot..._console.exe --headless --path . -- --smoke-test --god`

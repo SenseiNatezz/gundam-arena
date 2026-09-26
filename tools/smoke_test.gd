@@ -141,26 +141,62 @@ func _run() -> void:
 	vp.push_input(touch2, true)
 	await _frames(2)
 
-	# Hyper Mega Cannon: unlock, wait for targets, fire via the touch button, check the full cycle.
-	for u in GameState.upgrades:
-		if u.id == &"mega_cannon" and not GameState.stacks.has(u.id):
-			GameState.apply_upgrade(u)
-	player.special_cooldown_left = 0.0
-	await get_tree().create_timer(3.0).timeout  # let wave 1 fly in
+	# Beam Rifle: tap the HUD button once enemies are in range; it must hit and start its cooldown.
+	# Wait until wave 1 has flown in far enough to be targetable (up to ~8s).
+	for i in 480:
+		if GameState.world.nearest_enemy(player.global_position, player.AIM_RANGE):
+			break
+		await get_tree().physics_frame
+	var beam_btn: Control = main.get_node("HUD/Root/BeamButton")
+	_check("beam button ready at start", player.beam_ready())
+	var hp_before := 0.0
+	for e: Enemy in get_tree().get_nodes_in_group("enemies"):
+		hp_before += e.hp
 	var kills_before := GameState.kills
-	var special: Control = main.get_node("HUD/Root/SpecialButton")
-	_check("cannon button visible after unlock", special.visible)
-	var tap_special := InputEventScreenTouch.new()
-	tap_special.index = 2
-	tap_special.pressed = true
-	tap_special.position = special.get_global_rect().get_center()
-	vp.push_input(tap_special, true)
+	var tap_beam := InputEventScreenTouch.new()
+	tap_beam.index = 2
+	tap_beam.pressed = true
+	tap_beam.position = beam_btn.global_position + Vector2(beam_btn.size.x / 2, 56)
+	vp.push_input(tap_beam, true)
+	await _frames(4)
+	var hp_after := 0.0
+	for e: Enemy in get_tree().get_nodes_in_group("enemies"):
+		hp_after += e.hp
+	_check("beam fires and starts cooldown", player.beam_cooldown_left > 11.0, "cd=%.1f" % player.beam_cooldown_left)
+	_check("beam damages enemies", hp_after < hp_before or GameState.kills > kills_before,
+		"hp %.0f -> %.0f, kills %d -> %d" % [hp_before, hp_after, kills_before, GameState.kills])
+	tap_beam.pressed = false
+	vp.push_input(tap_beam, true)
+
+	# Beam Saber: drones right next to the mech get hit by the spin, and nearby enemy shots are cut.
+	var saber_btn: Control = main.get_node("HUD/Root/SaberButton")
+	_check("saber button ready at start", player.saber_ready())
+	var close_drones: Array[Enemy] = []
+	for i in 3:
+		var spot := player.global_position + Vector2.from_angle(i * TAU / 3.0) * 100.0
+		close_drones.append(GameState.world.spawn_enemy(&"drone", spot, spot, true))
+	var shot_origin := player.global_position + Vector2(0, -130)
+	GameState.world.fire_enemy_bullet(shot_origin, Vector2(0, 40), 10.0)
 	await _frames(3)
-	_check("cannon starts (slow-mo, rooted)", player.casting and Engine.time_scale < 0.5, "ts=%.2f" % Engine.time_scale)
-	await get_tree().create_timer(2.2, true, false, true).timeout
-	_check("cannon finishes and restores time", not player.casting and is_equal_approx(Engine.time_scale, 1.0)
-		and player.special_cooldown_left > 0.0, "ts=%.2f cd=%.1f" % [Engine.time_scale, player.special_cooldown_left])
-	_check("cannon destroyed enemies", GameState.kills > kills_before, "kills %d -> %d" % [kills_before, GameState.kills])
+	var tap_saber := InputEventScreenTouch.new()
+	tap_saber.index = 3
+	tap_saber.pressed = true
+	tap_saber.position = saber_btn.global_position + Vector2(saber_btn.size.x / 2, 56)
+	vp.push_input(tap_saber, true)
+	await _frames(40)
+	_check("saber starts its cooldown", player.saber_cooldown_left > 4.0, "cd=%.1f" % player.saber_cooldown_left)
+	var hurt := 0
+	for d in close_drones:
+		if not is_instance_valid(d) or d.dead or d.hp < d.max_hp:
+			hurt += 1
+	_check("saber hits all nearby drones", hurt == close_drones.size(), "%d/%d" % [hurt, close_drones.size()])
+	var live_shots := 0
+	for b in GameState.world.enemy_projectiles():
+		if b.active and b.global_position.distance_to(player.global_position) < 150.0:
+			live_shots += 1
+	_check("saber cuts nearby enemy shots", live_shots == 0, "live=%d" % live_shots)
+	tap_saber.pressed = false
+	vp.push_input(tap_saber, true)
 
 	# Destructible cover: enemy shots are stopped by a big crate and break it within 5 hits.
 	var crate: Cover = null

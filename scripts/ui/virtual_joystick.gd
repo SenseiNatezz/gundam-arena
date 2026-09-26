@@ -26,6 +26,8 @@ func _process(_delta: float) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if GameState.debug.no_input:
+		return  # capture runs ignore real input
 	if event is InputEventScreenTouch:
 		if event.pressed:
 			if _in_zone(event.position):

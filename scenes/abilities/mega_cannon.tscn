@@ -1,6 +1,0 @@
-[gd_scene format=3]
-
-[ext_resource type="Script" path="res://scenes/abilities/mega_cannon.gd" id="1"]
-
-[node name="MegaCannon" type="Node2D"]
-script = ExtResource("1")

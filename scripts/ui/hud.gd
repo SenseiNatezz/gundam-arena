@@ -16,11 +16,6 @@ signal pause_pressed
 @onready var banner_sub: Label = %BannerSub
 
 var _banner_tween: Tween
-var _cutin_tween: Tween
-var _hits_tween: Tween
-
-@onready var cutin: Control = %Cutin
-@onready var hit_counter: Label = %HitCounter
 
 
 func _ready() -> void:
@@ -38,7 +33,6 @@ func _ready() -> void:
 	boss_bar_box.visible = false
 	banner.modulate.a = 0.0
 	banner_sub.modulate.a = 0.0
-	hit_counter.modulate.a = 0.0
 
 
 func _style_bar(bar: ProgressBar, color: Color) -> void:
@@ -75,40 +69,6 @@ func _on_boss_changed(hp: float, max_hp: float) -> void:
 	boss_bar_box.visible = hp > 0.0
 	boss_bar.max_value = max_hp
 	boss_bar.value = hp
-
-
-## Special-move cut-in: a slanted band whips in from the right, holds, and leaves to the left.
-## Runs on real time so it plays at full speed during the cannon's slow-motion charge.
-func show_cutin(title: String) -> void:
-	cutin.get_node("Text").text = title
-	cutin.visible = true
-	cutin.rotation = deg_to_rad(-6.0)
-	cutin.pivot_offset = cutin.size / 2
-	var text: Label = cutin.get_node("Text")
-	cutin.position.x = cutin.size.x
-	text.position.x = 120.0
-	if _cutin_tween:
-		_cutin_tween.kill()
-	_cutin_tween = create_tween().set_ignore_time_scale()
-	_cutin_tween.tween_property(cutin, "position:x", 0.0, 0.12).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	_cutin_tween.parallel().tween_property(text, "position:x", 0.0, 0.35).set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
-	_cutin_tween.tween_interval(0.35)
-	_cutin_tween.tween_property(cutin, "position:x", -cutin.size.x, 0.14).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
-	_cutin_tween.tween_callback(func() -> void: cutin.visible = false)
-
-
-## Fighting-game style "37 HIT" counter; pops on every update and fades out after the combo ends.
-func show_hit_counter(hits: int) -> void:
-	hit_counter.text = "%d HIT" % hits
-	hit_counter.modulate.a = 1.0
-	hit_counter.pivot_offset = Vector2(0, hit_counter.size.y / 2)
-	hit_counter.scale = Vector2.ONE * 1.25
-	if _hits_tween:
-		_hits_tween.kill()
-	_hits_tween = create_tween()
-	_hits_tween.tween_property(hit_counter, "scale", Vector2.ONE, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	_hits_tween.tween_interval(1.0)
-	_hits_tween.tween_property(hit_counter, "modulate:a", 0.0, 0.4)
 
 
 func show_banner(title: String, subtitle := "", color := Color.WHITE, hold := 1.4) -> void:

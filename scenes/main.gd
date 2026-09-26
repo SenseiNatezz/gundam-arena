@@ -9,7 +9,6 @@ const XP_ORB := preload("res://scenes/xp_orb.tscn")
 const EXPLOSION := preload("res://scenes/fx/explosion.tscn")
 const DAMAGE_NUMBER := preload("res://scenes/fx/damage_number.tscn")
 const GLOW := preload("res://assets/fx/glow.tres")
-const CAMERA_HOME := Vector2(360, 640)
 const ENEMY_MISSILE := preload("res://scenes/enemy_missile.tscn")
 const ENEMY_SCENES := {
 	&"drone": preload("res://scenes/enemies/drone.tscn"),
@@ -136,8 +135,12 @@ var _state_time := 2.0
 var _wave_queue: Array = []
 var _group_timer := 0.0
 var _debug_args: Dictionary = {}
-var _cast_at := -1.0  # --cast-at: fire the special at this game time (run_time, not a timer)
 var _eruption_timer := 3.0
+var _beam_at := -1.0  # --beam-at: fire the Beam Rifle at this game time (for previews)
+var _saber_at := -1.0  # --saber-at: swing the Beam Saber at this game time (for previews)
+var _demo_ring_at := -1.0  # --demo-ring: drop a ring of drones around the mech (for previews)
+## Set by the Beam Rifle while it deals damage so its hits get the big number style.
+var big_damage_numbers := false
 
 
 func _ready() -> void:
@@ -190,11 +193,19 @@ func _process(delta: float) -> void:
 	if get_tree().paused:
 		return
 	_update_waves(delta)
+	if _beam_at >= 0.0 and GameState.run_time >= _beam_at:
+		_beam_at = -1.0
+		GameState.special_requested = true
+	if _saber_at >= 0.0 and GameState.run_time >= _saber_at:
+		_saber_at = -1.0
+		GameState.saber_requested = true
+	if _demo_ring_at >= 0.0 and GameState.run_time >= _demo_ring_at:
+		_demo_ring_at = -1.0
+		for i in 7:
+			var spot := player.global_position + Vector2.from_angle(i * TAU / 7.0 + 0.3) * randf_range(95.0, 135.0)
+			spawn_enemy(&"drone", spot, spot, true)
 	if GameState.stage == 3 and _state == &"fighting":
 		_update_eruptions(delta)
-	if _cast_at >= 0.0 and GameState.run_time >= _cast_at:
-		_cast_at = -1.0
-		GameState.special_requested = true
 	_trauma = maxf(_trauma - delta * 1.8, 0.0)
 	var amount := _trauma * _trauma
 	camera.offset = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * 22.0 * amount
@@ -388,6 +399,14 @@ func fire_enemy_fireball(pos: Vector2, vel: Vector2, damage: float) -> void:
 	_take(_pools[&"enemy_fireball"]).launch(pos, vel, damage)
 
 
+## Every pooled enemy projectile (bullets, missiles, fireballs) - active or not.
+func enemy_projectiles() -> Array:
+	var out: Array = []
+	for key in [&"enemy", &"enemy_missile", &"enemy_fireball"]:
+		out.append_array(_pools[key].items)
+	return out
+
+
 ## Explosion that hurts the player and/or enemies inside `radius` (mines, mortar shells).
 func area_blast(pos: Vector2, radius: float, player_damage: float, enemy_damage: float, size := 1.0, heat := false) -> void:
 	spawn_explosion(pos, size)
@@ -416,7 +435,7 @@ func spawn_damage_number(pos: Vector2, amount: float, crit := false, player_hit 
 	var label := DAMAGE_NUMBER.instantiate()
 	fx.add_child(label)
 	label.position = pos - label.size / 2
-	label.setup(amount, crit, player_hit)
+	label.setup(amount, crit, player_hit, big_damage_numbers)
 
 
 func spawn_hit_spark(pos: Vector2, color: Color) -> void:
@@ -450,19 +469,6 @@ func add_floor_decal(node: Node2D) -> void:
 	node.z_index = -5
 	add_child(node)
 	move_child(node, $Arena.get_index() + 1)
-
-
-var _cinematic_tween: Tween
-
-## Punches the camera toward `focus` (zoom > 1) or back to the arena (focus = Vector2.ZERO).
-## Uses real time so it stays smooth during the cannon's slow-motion charge.
-func cinematic_focus(focus: Vector2, zoom: float, duration: float) -> void:
-	var target := CAMERA_HOME if focus == Vector2.ZERO else CAMERA_HOME.lerp(focus, 0.35)
-	if _cinematic_tween:
-		_cinematic_tween.kill()
-	_cinematic_tween = create_tween().set_parallel().set_ignore_time_scale()
-	_cinematic_tween.tween_property(camera, "position", target, duration).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	_cinematic_tween.tween_property(camera, "zoom", Vector2.ONE * zoom, duration).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 
 func shake(amount: float) -> void:
@@ -620,7 +626,6 @@ func _reload() -> void:
 # --- debug -----------------------------------------------------------------------------
 # Command-line flags after "--", e.g.:
 #   godot --path . -- --god --autopilot --wave=5 --level=6 --hp=10 --shot=shot.png --shot-time=8
-#   --cannon (unlock the Hyper Mega Cannon)  --cast-at=S (fire it at S seconds)
 
 func _parse_debug_args() -> void:
 	for arg in OS.get_cmdline_user_args():
@@ -628,7 +633,7 @@ func _parse_debug_args() -> void:
 		_debug_args[parts[0]] = parts[1] if parts.size() > 1 else "true"
 	# Screenshot / movie capture runs pop a window on the desktop: ignore real mouse/keyboard input
 	# (and let clicks pass through) so the recording is deterministic and can't be disturbed.
-	GameState.debug.no_input = _debug_args.has("shot") or OS.get_cmdline_args().has("--write-movie")
+	GameState.debug.no_input = _debug_args.has("shot") or Engine.get_write_movie_path() != ""
 	if GameState.debug.no_input:
 		get_viewport().set_disable_input(true)
 		get_window().unfocusable = true
@@ -655,12 +660,12 @@ func _parse_debug_args() -> void:
 			_open_upgrade_menu())
 	if _debug_args.has("pause-menu"):
 		get_tree().create_timer(1.0).timeout.connect(_toggle_pause)
-	if _debug_args.has("cannon"):
-		for u in GameState.upgrades:
-			if u.id == &"mega_cannon":
-				GameState.apply_upgrade(u)
-	if _debug_args.has("cast-at"):
-		_cast_at = float(_debug_args["cast-at"])
+	if _debug_args.has("beam-at"):
+		_beam_at = float(_debug_args["beam-at"])
+	if _debug_args.has("saber-at"):
+		_saber_at = float(_debug_args["saber-at"])
+	if _debug_args.has("demo-ring"):
+		_demo_ring_at = float(_debug_args["demo-ring"]) if _debug_args["demo-ring"] != "true" else 4.0
 	if _debug_args.has("damage-cover"):
 		# Preview cover damage states: a mix of intact, cracked and broken pieces.
 		get_tree().create_timer(1.0).timeout.connect(func() -> void:

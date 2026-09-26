@@ -61,13 +61,10 @@ func _build() -> void:
 	_streams[&"laser"] = _synth(1.2, 95, 80, 0.55, 0.7, 0.6, 0.3, 0.2, 0.35, 0.01)
 	_streams[&"slam"] = _synth(0.45, 70, 35, 0.7, 0.2, 0.8, 0.25, 0.05, 1.8)
 	_streams[&"select"] = _synth(0.07, 1250, 1250, 0.3, 0.5, 0.0, 0.0, 0.0, 1.0)
-	# Hyper Mega Cannon: bright "shing" for the super flash, then a roaring sustained beam.
-	_streams[&"super_flash"] = _synth(0.5, 1300, 2600, 0.35, 0.1, 0.35, 0.6, 0.9, 2.2)
-	_streams[&"cannon_fire"] = _mix([
-		_synth(1.8, 62, 48, 0.55, 0.85, 0.0, 0.0, 0.0, 0.5, 0.01),
-		_synth(1.8, 900, 700, 0.12, 0.0, 0.75, 0.35, 0.15, 0.6, 0.01),
-		_synth(0.35, 120, 40, 0.6, 0.2, 0.9, 0.3, 0.05, 1.5),
-	])
+	# Beam Rifle: sharp electric zap sweeping down into a crackle.
+	_streams[&"beam_rifle"] = _synth(0.55, 2600, 260, 0.38, 0.75, 0.7, 0.85, 0.25, 1.1)
+	# Beam Saber: airy whoosh sweeping down with a bright metallic edge.
+	_streams[&"saber"] = _synth(0.38, 1500, 380, 0.22, 0.2, 0.8, 0.25, 0.85, 1.3, 0.02)
 	var notes: Array[AudioStreamWAV] = []
 	for f in [523.0, 659.0, 784.0, 1047.0]:
 		notes.append(_synth(0.09, f, f, 0.4, 0.25, 0.0, 0.0, 0.0, 0.8))
@@ -102,22 +99,6 @@ func _join(parts: Array[AudioStreamWAV]) -> AudioStreamWAV:
 	var data := PackedByteArray()
 	for p in parts:
 		data.append_array(p.data)
-	return _wav(data)
-
-
-## Sums voices sample-by-sample (length of the longest), clipping to 16-bit.
-func _mix(parts: Array[AudioStreamWAV]) -> AudioStreamWAV:
-	var n := 0
-	for p in parts:
-		n = maxi(n, p.data.size())
-	var data := PackedByteArray()
-	data.resize(n)
-	for i in range(0, n, 2):
-		var v := 0
-		for p in parts:
-			if i < p.data.size():
-				v += p.data.decode_s16(i)
-		data.encode_s16(i, clampi(v, -32768, 32767))
 	return _wav(data)
 
 

@@ -6,7 +6,7 @@ extends Resource
 @export var title: String
 @export_multiline var description: String
 ## Which procedural icon UpgradeIcon draws.
-@export_enum("triple", "thrusters", "speed", "pierce", "shield", "homing", "power", "armor", "cannon", "heat", "move") var icon: String = "triple"
+@export_enum("triple", "thrusters", "speed", "pierce", "shield", "homing", "power", "armor", "heat", "move") var icon: String = "triple"
 @export var color := Color(0.3, 0.7, 1.0)
 @export var max_stacks := 3
 ## Not offered before this player level.

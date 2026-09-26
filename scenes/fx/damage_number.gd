@@ -1,10 +1,17 @@
 extends Label
 ## Floating "-52" style damage number. Main.spawn_damage_number() sets it up.
 
-func setup(amount: float, crit: bool, player_hit: bool) -> void:
+func setup(amount: float, crit: bool, player_hit: bool, big := false) -> void:
 	text = "-%d" % roundi(amount)
 	var settings: LabelSettings = label_settings.duplicate()
-	if player_hit:
+	if big:
+		# Beam Rifle hits: large white numbers with a heavy blue outline.
+		settings.font_color = Color(1, 1, 1)
+		settings.outline_color = Color(0.05, 0.2, 0.55)
+		settings.outline_size = 10
+		settings.font_size = 52
+		crit = true  # bigger pop-in
+	elif player_hit:
 		settings.font_color = Color(1, 0.25, 0.2)
 		settings.font_size = 34
 	elif crit:

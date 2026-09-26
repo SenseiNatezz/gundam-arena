@@ -6,6 +6,8 @@ var _pressed_flash := 0.0
 
 # Raw touch events (not GUI mouse emulation) so a second finger works while the stick is held.
 func _input(event: InputEvent) -> void:
+	if GameState.debug.no_input:
+		return  # capture runs ignore real input
 	if event is InputEventScreenTouch and event.pressed and not get_tree().paused:
 		if get_global_rect().grow(16).has_point(event.position):
 			GameState.dash_requested = true
