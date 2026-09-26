@@ -10,6 +10,8 @@ const LIVE_AREA := Rect2(-100, -250, 920, 1650)
 @export var turn_rate := 6.0
 @export var lifetime := 1.6
 @export var spark_color := Color(0.5, 0.85, 1.0)
+## Fire damage (reduced by the Heat Shield upgrade).
+@export var heat := false
 
 var active := false
 var velocity := Vector2.ZERO
@@ -78,7 +80,11 @@ func _on_area_entered(area: Area2D) -> void:
 				pierce_left -= 1
 			else:
 				deactivate()
+	elif area is Cover:
+		# Cover soaks up enemy fire until it breaks.
+		area.take_hit(1, global_position)
+		deactivate()
 	elif area.get_parent() is Player:
-		area.get_parent().take_damage(damage, global_position - velocity.normalized() * 40.0)
+		area.get_parent().take_damage(damage, global_position - velocity.normalized() * 40.0, heat)
 		GameState.world.spawn_hit_spark(global_position, spark_color)
 		deactivate()

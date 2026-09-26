@@ -14,6 +14,8 @@ signal died(enemy: Enemy)
 @export_range(0.0, 1.0) var knockback_resist := 0.0
 @export var frames := 1
 @export var anim_fps := 18.0
+## How strongly hits flash the sprite white (bosses use less so constant fire doesn't wash them out).
+@export_range(0.0, 1.0) var flash_strength := 1.0
 
 var hp := 0.0
 var dead := false
@@ -67,7 +69,7 @@ func take_damage(amount: float, crit: bool, hit_dir: Vector2, knock := 170.0) ->
 	if dead:
 		return
 	hp -= amount
-	_flash = 1.0
+	_flash = flash_strength
 	_knockback += hit_dir * knock * (1.0 - knockback_resist)
 	GameState.world.spawn_damage_number(global_position + Vector2(randf_range(-18, 18), -34), amount, crit)
 	Sfx.play(&"hit", -18.0, 0.2)

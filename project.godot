@@ -91,6 +91,7 @@ pointing/emulate_touch_from_mouse=true
 2d_physics/layer_4="player_shots"
 2d_physics/layer_5="enemy_shots"
 2d_physics/layer_6="pickups"
+2d_physics/layer_7="cover"
 
 [rendering]
 

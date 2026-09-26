@@ -162,6 +162,23 @@ func _run() -> void:
 		and player.special_cooldown_left > 0.0, "ts=%.2f cd=%.1f" % [Engine.time_scale, player.special_cooldown_left])
 	_check("cannon destroyed enemies", GameState.kills > kills_before, "kills %d -> %d" % [kills_before, GameState.kills])
 
+	# Destructible cover: enemy shots are stopped by a big crate and break it within 5 hits.
+	var crate: Cover = null
+	for cov: Cover in get_tree().get_nodes_in_group("cover"):
+		if cov.kind == &"crate" and cov.max_hits == 5 and cov.global_position.x < 200.0:
+			crate = cov
+			break
+	_check("level 1 has destructible crates", crate != null)
+	if crate:
+		var shots := 0
+		while not crate.broken and shots < 10:
+			GameState.world.fire_enemy_bullet(crate.global_position + Vector2(0, -150), Vector2(0, 600), 10.0)
+			shots += 1
+			await _frames(20)
+		_check("enemy shots break a crate within 5 hits", crate.broken and shots <= 5, "shots=%d" % shots)
+		await _frames(2)
+		_check("broken crate no longer blocks", crate.get_node_or_null("StaticBody2D") == null and not crate.monitorable)
+
 	# The corner from the bug report: right wall + crate stack. Ram it, then drive back out.
 	player.global_position = Vector2(630, 540)
 	GameState.touch_move = Vector2(0.707, 0.707)

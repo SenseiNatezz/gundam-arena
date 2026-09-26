@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="Upgrade" format=3]
+
+[ext_resource type="Script" path="res://scripts/upgrade.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"heat_shield"
+title = "Heat Shield"
+description = "-35% damage from fireballs, eruptions and flame slams."
+icon = "heat"
+color = Color(1, 0.55, 0.15, 1)
+max_stacks = 2
+min_stage = 3
+add_stats = {"heat_resist": 0.35}
+mul_stats = {}

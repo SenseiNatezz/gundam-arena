@@ -5,8 +5,8 @@
 [resource]
 script = ExtResource("1")
 id = &"piercing"
-title = "Piercing Shots"
-description = "Bolts pass through 1 more enemy."
+title = "Piercing Shot"
+description = "Projectiles pass through 1 more enemy."
 icon = "pierce"
 color = Color(0.7, 0.55, 1, 1)
 max_stacks = 3

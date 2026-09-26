@@ -51,6 +51,17 @@ func _draw() -> void:
 			draw_line(o + d * 16 * s, o + d * 80 * s, Color(1, 1, 1), 5 * s)
 			draw_line(o - d * 4 * s, o + d * 18 * s, Color(0.75, 0.8, 0.9), 16 * s)
 			draw_circle(o + d * 18 * s, 10 * s, Color(1, 0.7, 0.95))
+		"heat":
+			# Shield with a flame on it.
+			draw_colored_polygon(PackedVector2Array([c + Vector2(-24, -24) * s, c + Vector2(24, -24) * s, c + Vector2(20, 10) * s, c + Vector2(0, 30) * s, c + Vector2(-20, 10) * s]), Color(color, 0.35))
+			draw_polyline(PackedVector2Array([c + Vector2(-24, -24) * s, c + Vector2(24, -24) * s, c + Vector2(20, 10) * s, c + Vector2(0, 30) * s, c + Vector2(-20, 10) * s, c + Vector2(-24, -24) * s]), color, 3.5 * s, true)
+			draw_colored_polygon(PackedVector2Array([c + Vector2(0, -18) * s, c + Vector2(11, 2) * s, c + Vector2(6, 16) * s, c + Vector2(-6, 16) * s, c + Vector2(-11, 2) * s]), Color(1, 0.45, 0.1))
+			draw_colored_polygon(PackedVector2Array([c + Vector2(0, -4) * s, c + Vector2(5, 8) * s, c + Vector2(0, 14) * s, c + Vector2(-5, 8) * s]), Color(1, 0.9, 0.5))
+		"move":
+			# Forward arrow with speed streaks.
+			draw_colored_polygon(PackedVector2Array([c + Vector2(0, -30) * s, c + Vector2(20, -6) * s, c + Vector2(8, -6) * s, c + Vector2(8, 24) * s, c + Vector2(-8, 24) * s, c + Vector2(-8, -6) * s, c + Vector2(-20, -6) * s]), color)
+			for x in [-26.0, 26.0]:
+				draw_line(c + Vector2(x, 0) * s, c + Vector2(x, 24) * s, Color(color, 0.6), 4 * s)
 		"armor":
 			draw_colored_polygon(PackedVector2Array([c + Vector2(-24, -24) * s, c + Vector2(24, -24) * s, c + Vector2(20, 10) * s, c + Vector2(0, 30) * s, c + Vector2(-20, 10) * s]), Color(color, 0.35))
 			draw_rect(Rect2(c + Vector2(-4, -16) * s, Vector2(8, 30) * s), color)

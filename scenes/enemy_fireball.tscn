@@ -7,55 +7,71 @@
 blend_mode = 1
 
 [sub_resource type="Gradient" id="trail_grad"]
-colors = PackedColorArray(1, 0.6, 0.2, 0.9, 0.4, 0.35, 0.35, 0)
+offsets = PackedFloat32Array(0, 0.4, 1)
+colors = PackedColorArray(1, 0.75, 0.25, 0.9, 1, 0.3, 0.05, 0.6, 0.25, 0.1, 0.05, 0)
 
 [sub_resource type="GradientTexture1D" id="trail_ramp"]
 gradient = SubResource("trail_grad")
 
+[sub_resource type="Curve" id="shrink_curve"]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 0.2), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="CurveTexture" id="shrink"]
+curve = SubResource("shrink_curve")
+
 [sub_resource type="ParticleProcessMaterial" id="trail_mat"]
 particle_flag_disable_z = true
+emission_shape = 1
+emission_sphere_radius = 6.0
 direction = Vector3(0, 1, 0)
-spread = 20.0
-initial_velocity_min = 20.0
-initial_velocity_max = 60.0
+spread = 35.0
+initial_velocity_min = 15.0
+initial_velocity_max = 45.0
 gravity = Vector3(0, 0, 0)
-scale_min = 0.2
-scale_max = 0.35
+scale_min = 0.3
+scale_max = 0.5
+scale_curve = SubResource("shrink")
 color_ramp = SubResource("trail_ramp")
 
 [sub_resource type="CircleShape2D" id="shape"]
-radius = 11.0
+radius = 14.0
 
-[node name="EnemyMissile" type="Area2D"]
+[node name="EnemyFireball" type="Area2D"]
 collision_layer = 16
 collision_mask = 66
 monitorable = false
 script = ExtResource("1")
 player_owned = false
-homing = true
-turn_rate = 2.2
-lifetime = 4.5
-spark_color = Color(1, 0.5, 0.2, 1)
+lifetime = 7.0
+spark_color = Color(1, 0.55, 0.15, 1)
+heat = true
 
 [node name="Trail" type="GPUParticles2D" parent="."]
 material = SubResource("add")
 emitting = false
-amount = 24
-lifetime = 0.45
+amount = 30
+lifetime = 0.5
 texture = ExtResource("2")
 visibility_rect = Rect2(-200, -200, 400, 400)
 process_material = SubResource("trail_mat")
 
 [node name="Glow" type="Sprite2D" parent="."]
-modulate = Color(1, 0.3, 0.1, 0.95)
+modulate = Color(1, 0.35, 0.05, 0.9)
 material = SubResource("add")
-scale = Vector2(0.5, 0.9)
+scale = Vector2(1.0, 1.0)
+texture = ExtResource("2")
+
+[node name="Mid" type="Sprite2D" parent="."]
+modulate = Color(1, 0.65, 0.15, 1)
+material = SubResource("add")
+scale = Vector2(0.55, 0.55)
 texture = ExtResource("2")
 
 [node name="Core" type="Sprite2D" parent="."]
-modulate = Color(1, 0.9, 0.7, 1)
+modulate = Color(1, 0.95, 0.75, 1)
 material = SubResource("add")
-scale = Vector2(0.18, 0.45)
+scale = Vector2(0.26, 0.26)
 texture = ExtResource("2")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]

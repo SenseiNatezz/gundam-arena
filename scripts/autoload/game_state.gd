@@ -14,8 +14,9 @@ const TOTAL_WAVES := 5
 const STAGES := {
 	1: {"sector": "A-1", "title": "HANGAR A-1", "boss": "ARACHNE-CLASS MOBILE ARMOR"},
 	2: {"sector": "B-7", "title": "REACTOR DECK B-7", "boss": "LEVIATHAN-CLASS BATTLESHIP"},
+	3: {"sector": "VF", "title": "VOLCANIC FORGE", "boss": "MAGMA FORGE MECH"},
 }
-const FINAL_STAGE := 2
+const FINAL_STAGE := 3
 const BASE_STATS := {
 	"max_hp": 120.0,
 	"move_speed": 380.0,
@@ -31,6 +32,7 @@ const BASE_STATS := {
 	"homing": 0,
 	"magnet": 130.0,
 	"cannon": 0,
+	"heat_resist": 0.0,
 }
 const UPGRADE_PATHS := [
 	"res://resources/upgrades/triple_shot.tres",
@@ -42,6 +44,8 @@ const UPGRADE_PATHS := [
 	"res://resources/upgrades/power.tres",
 	"res://resources/upgrades/armor.tres",
 	"res://resources/upgrades/mega_cannon.tres",
+	"res://resources/upgrades/heat_shield.tres",
+	"res://resources/upgrades/move_speed.tres",
 ]
 
 var upgrades: Array[Upgrade] = []
@@ -150,7 +154,7 @@ func roll_upgrades(count := 3) -> Array[Upgrade]:
 	var pool: Array[Upgrade] = []
 	var featured: Array[Upgrade] = []
 	for u in upgrades:
-		if stacks.get(u.id, 0) >= u.max_stacks or level < u.min_level:
+		if stacks.get(u.id, 0) >= u.max_stacks or level < u.min_level or stage < u.min_stage:
 			continue
 		# Featured unlocks (e.g. the Hyper Mega Cannon) are guaranteed a slot until first taken.
 		if u.featured and not stacks.has(u.id):

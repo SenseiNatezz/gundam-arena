@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="Upgrade" format=3]
+
+[ext_resource type="Script" path="res://scripts/upgrade.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"move_speed"
+title = "+20% Move Speed"
+description = "Servo-boosted legs. Move 20% faster."
+icon = "move"
+color = Color(0.4, 1, 0.75, 1)
+max_stacks = 3
+add_stats = {}
+mul_stats = {"move_speed": 1.2}

@@ -25,6 +25,7 @@ xp_orbs = 4
 xp_value = 2
 explosion_size = 1.4
 knockback_resist = 1.0
+flash_strength = 0.4
 
 [node name="Sprite" type="Sprite2D" parent="."]
 material = SubResource("flash_mat")

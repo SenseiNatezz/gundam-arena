@@ -19,8 +19,12 @@ const ENEMY_SCENES := {
 	&"crawler": preload("res://scenes/enemies/crawler.tscn"),
 	&"mine": preload("res://scenes/enemies/mine.tscn"),
 	&"leviathan": preload("res://scenes/enemies/leviathan.tscn"),
+	&"heat_drone": preload("res://scenes/enemies/heat_drone.tscn"),
+	&"forge_mech": preload("res://scenes/enemies/forge_mech.tscn"),
 }
-const BOSS_TYPES := [&"boss", &"leviathan"]
+const BOSS_TYPES := [&"boss", &"leviathan", &"forge_mech"]
+const ENEMY_FIREBALL := preload("res://scenes/enemy_fireball.tscn")
+const ERUPTION := preload("res://scenes/hazards/eruption_tile.gd")
 
 ## Per level: a list of waves. Each wave is a list of groups; a group spawns `count` enemies of
 ## `type` in a `formation`, `delay` seconds after the previous group.
@@ -28,7 +32,33 @@ const BOSS_TYPES := [&"boss", &"leviathan"]
 const STAGE_WAVES := {
 	1: STAGE_1_WAVES,
 	2: STAGE_2_WAVES,
+	3: STAGE_3_WAVES,
 }
+const STAGE_3_WAVES := [
+	[
+		{"type": &"heat_drone", "count": 6, "formation": &"line", "delay": 0.0},
+		{"type": &"heat_drone", "count": 4, "formation": &"vee", "delay": 5.0},
+	],
+	[
+		{"type": &"heat_drone", "count": 6, "formation": &"swarm", "delay": 0.0},
+		{"type": &"drone", "count": 6, "formation": &"vee", "delay": 4.0},
+		{"type": &"heat_drone", "count": 4, "formation": &"row", "delay": 5.0},
+	],
+	[
+		{"type": &"heat_drone", "count": 8, "formation": &"swarm", "delay": 0.0},
+		{"type": &"wasp", "count": 4, "formation": &"row", "delay": 4.0},
+		{"type": &"crawler", "count": 2, "formation": &"row", "delay": 5.0},
+	],
+	[
+		{"type": &"heat_drone", "count": 8, "formation": &"line", "delay": 0.0},
+		{"type": &"mine", "count": 8, "formation": &"sides", "delay": 4.0},
+		{"type": &"heat_drone", "count": 6, "formation": &"vee", "delay": 5.0},
+		{"type": &"gunship", "count": 2, "formation": &"row", "delay": 5.0},
+	],
+	[
+		{"type": &"forge_mech", "count": 1, "formation": &"center", "delay": 0.0},
+	],
+]
 const STAGE_2_WAVES := [
 	[
 		{"type": &"wasp", "count": 4, "formation": &"row", "delay": 0.0},
@@ -107,6 +137,7 @@ var _wave_queue: Array = []
 var _group_timer := 0.0
 var _debug_args: Dictionary = {}
 var _cast_at := -1.0  # --cast-at: fire the special at this game time (run_time, not a timer)
+var _eruption_timer := 3.0
 
 
 func _ready() -> void:
@@ -127,6 +158,11 @@ func _ready() -> void:
 	_pools[&"enemy"] = _make_pool(ENEMY_BULLET, 220)
 	_pools[&"missile"] = _make_pool(MISSILE, 24)
 	_pools[&"enemy_missile"] = _make_pool(ENEMY_MISSILE, 24)
+	_pools[&"enemy_fireball"] = _make_pool(ENEMY_FIREBALL, 60)
+	if GameState.stage == 3:
+		var warm_light := CanvasModulate.new()  # warm orange lighting over the world (not the HUD)
+		warm_light.color = Color(1.0, 0.87, 0.76)
+		add_child(warm_light)
 	player.died.connect(_on_player_died)
 	GameState.level_up_ready.connect(_on_level_up_ready)
 	upgrade_menu.chosen.connect(_on_upgrade_chosen)
@@ -154,6 +190,8 @@ func _process(delta: float) -> void:
 	if get_tree().paused:
 		return
 	_update_waves(delta)
+	if GameState.stage == 3 and _state == &"fighting":
+		_update_eruptions(delta)
 	if _cast_at >= 0.0 and GameState.run_time >= _cast_at:
 		_cast_at = -1.0
 		GameState.special_requested = true
@@ -166,8 +204,9 @@ func _process(delta: float) -> void:
 
 func _notification(what: int) -> void:
 	# Phones: switching apps / locking the screen pauses instead of letting enemies keep shooting.
+	# (Skipped in capture runs, whose windows never take focus.)
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and is_node_ready() and not get_tree().paused \
-			and _state in [&"intro", &"fighting", &"between"]:
+			and not GameState.debug.no_input and _state in [&"intro", &"fighting", &"between"]:
 		_toggle_pause()
 
 
@@ -345,13 +384,21 @@ func fire_enemy_missile(pos: Vector2, vel: Vector2, damage: float) -> void:
 	_take(_pools[&"enemy_missile"]).launch(pos, vel, damage)
 
 
+func fire_enemy_fireball(pos: Vector2, vel: Vector2, damage: float) -> void:
+	_take(_pools[&"enemy_fireball"]).launch(pos, vel, damage)
+
+
 ## Explosion that hurts the player and/or enemies inside `radius` (mines, mortar shells).
-func area_blast(pos: Vector2, radius: float, player_damage: float, enemy_damage: float, size := 1.0) -> void:
+func area_blast(pos: Vector2, radius: float, player_damage: float, enemy_damage: float, size := 1.0, heat := false) -> void:
 	spawn_explosion(pos, size)
 	shake(0.2 * size)
 	Sfx.play(&"explode", -6.0, 0.15)
 	if player_damage > 0.0 and not player.dead and player.global_position.distance_to(pos) < radius + 20.0:
-		player.take_damage(player_damage, pos)
+		player.take_damage(player_damage, pos, heat)
+	# Explosions chew through cover too.
+	for cover: Cover in get_tree().get_nodes_in_group("cover"):
+		if not cover.broken and cover.global_position.distance_to(pos) < radius + 30.0:
+			cover.take_hit(3, cover.global_position)
 	if enemy_damage > 0.0:
 		for e: Enemy in get_tree().get_nodes_in_group("enemies"):
 			if not e.dead and e.global_position.distance_to(pos) < radius + e.hit_radius:
@@ -435,7 +482,7 @@ func _warm_up() -> void:
 	warm.modulate.a = 0.02
 	fx.add_child(warm)
 	warm.add_child(EXPLOSION.instantiate())
-	for scene: PackedScene in [PLAYER_BULLET, ENEMY_BULLET, MISSILE]:
+	for scene: PackedScene in [PLAYER_BULLET, ENEMY_BULLET, MISSILE, ENEMY_MISSILE, ENEMY_FIREBALL]:
 		var b: Bullet = scene.instantiate()
 		b.monitoring = false
 		warm.add_child(b)
@@ -614,6 +661,13 @@ func _parse_debug_args() -> void:
 				GameState.apply_upgrade(u)
 	if _debug_args.has("cast-at"):
 		_cast_at = float(_debug_args["cast-at"])
+	if _debug_args.has("damage-cover"):
+		# Preview cover damage states: a mix of intact, cracked and broken pieces.
+		get_tree().create_timer(1.0).timeout.connect(func() -> void:
+			var i := 0
+			for cover: Cover in get_tree().get_nodes_in_group("cover"):
+				cover.take_hit([0, cover.max_hits - 1, cover.max_hits, cover.max_hits / 2][i % 4], cover.global_position)
+				i += 1)
 	if _debug_args.has("smoke-test"):
 		add_child(load("res://tools/smoke_test.gd").new())
 	if _debug_args.has("shot"):
@@ -626,3 +680,30 @@ func _take_screenshot() -> void:
 	get_viewport().get_texture().get_image().save_png(path)
 	print("SCREENSHOT %s  fps=%d  nodes=%d" % [path, Engine.get_frames_per_second(), get_tree().get_node_count()])
 	get_tree().quit()
+
+
+# --- Volcanic Forge floor eruptions ------------------------------------------------------------
+
+## Every few seconds 1-3 deck tiles glow, then erupt. One often targets the player's tile so
+## standing still is never safe.
+func _update_eruptions(delta: float) -> void:
+	_eruption_timer -= delta
+	if _eruption_timer > 0.0:
+		return
+	_eruption_timer = randf_range(2.0, 3.2)
+	var chosen: Array[Vector2i] = []
+	if randf() < 0.45 and not player.dead:
+		chosen.append(_tile_at(player.global_position))
+	while chosen.size() < randi_range(1, 3):
+		var cell := Vector2i(randi_range(0, 5), randi_range(1, 10))
+		if not chosen.has(cell):
+			chosen.append(cell)
+	for cell in chosen:
+		var eruption := Node2D.new()
+		eruption.set_script(ERUPTION)
+		eruption.set("tile", Rect2(46.0 + cell.x * 104.0, 150.0 + cell.y * 104.0, 104.0, 104.0))
+		add_floor_decal(eruption)
+
+
+func _tile_at(pos: Vector2) -> Vector2i:
+	return Vector2i(clampi(int((pos.x - 46.0) / 104.0), 0, 5), clampi(int((pos.y - 150.0) / 104.0), 1, 10))

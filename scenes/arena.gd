@@ -15,13 +15,17 @@ const BARRELS := [Vector2(636, 940), Vector2(600, 972), Vector2(92, 510), Vector
 ## Level 2 (reactor deck): round reactor pylons instead of crates.
 const PYLONS := [Vector2(150, 430), Vector2(575, 700), Vector2(120, 880), Vector2(600, 330)]
 const PYLON_RADIUS := 36.0
+## Level 3 (volcanic forge): rocks hug the side walls only, leaving the middle open. [position, radius]
+const FORGE_ROCKS := [
+	[Vector2(78, 300), 30.0], [Vector2(70, 640), 26.0], [Vector2(84, 1010), 32.0],
+	[Vector2(642, 420), 28.0], [Vector2(650, 780), 32.0], [Vector2(640, 1120), 26.0],
+]
 
 var _font: Font
 var _rng := RandomNumberGenerator.new()
 var _stage := 1
-var _crates: Array = []
-var _barrels: Array = []
-var _pylons: Array = []
+var _lava_layer: Node2D
+var _cracks: Array[PackedVector2Array] = []
 var _t := 0.0
 
 
@@ -35,15 +39,20 @@ func _ready() -> void:
 ## Called by Main once the level is known: picks the layout, builds colliders and paints the floor.
 func setup(stage: int) -> void:
 	_stage = stage
-	_crates = CRATES if stage == 1 else []
-	_barrels = BARRELS if stage == 1 else []
-	_pylons = PYLONS if stage == 2 else []
 	_build_colliders()
+	_spawn_cover()
+	if stage == 3:
+		_setup_forge()
 	queue_redraw()
 
 
 func _process(delta: float) -> void:
 	# The reactor deck's coolant glow pulses; the hangar is static and never redraws.
+	if _stage == 3:
+		_t += delta
+		if int(_t * 10.0) != int((_t - delta) * 10.0):
+			_lava_layer.queue_redraw()  # only the lava glow animates; the basalt stays static
+		return
 	if _stage == 2:
 		_t += delta
 		if int(_t * 8.0) != int((_t - delta) * 8.0):
@@ -58,8 +67,6 @@ func _build_colliders() -> void:
 	var rects: Array[Rect2] = [
 		Rect2(0, 0, WALL, H), Rect2(W - WALL, 0, WALL, H), Rect2(0, 0, W, GATE + 30.0), Rect2(0, H - 30.0, W, 30.0),
 	]
-	for c in _crates:
-		rects.append(c)
 	for r in rects:
 		var shape := CollisionShape2D.new()
 		var rect_shape := RectangleShape2D.new()
@@ -67,23 +74,39 @@ func _build_colliders() -> void:
 		shape.shape = rect_shape
 		shape.position = r.get_center()
 		body.add_child(shape)
-	var circles: Array = []
-	for b in _barrels:
-		circles.append([b, 20.0])
-	for p in _pylons:
-		circles.append([p, PYLON_RADIUS])
-	for c in circles:
-		var shape := CollisionShape2D.new()
-		var circle := CircleShape2D.new()
-		circle.radius = c[1]
-		shape.shape = circle
-		shape.position = c[0]
-		body.add_child(shape)
+
+
+## Destructible cover for this level (see Cover). Hit counts: small crate 3, big crate 5,
+## barrel 3, reactor pylon 8, forge rock 7.
+func _spawn_cover() -> void:
+	var specs: Array = []
+	if _stage == 1:
+		for r: Rect2 in CRATES:
+			specs.append({"kind": &"crate", "pos": r.get_center(), "size": r.size, "hits": 5 if r.size.x >= 60.0 else 3})
+		for b: Vector2 in BARRELS:
+			specs.append({"kind": &"barrel", "pos": b, "radius": 20.0, "hits": 3})
+	elif _stage == 2:
+		for p: Vector2 in PYLONS:
+			specs.append({"kind": &"pylon", "pos": p, "radius": PYLON_RADIUS, "hits": 8})
+	elif _stage == 3:
+		for rock in FORGE_ROCKS:
+			specs.append({"kind": &"rock", "pos": rock[0], "radius": rock[1], "hits": 7})
+	for spec in specs:
+		var cover := Cover.new()
+		cover.kind = spec.kind
+		cover.position = spec.pos
+		cover.size = spec.get("size", Vector2.ZERO)
+		cover.radius = spec.get("radius", 0.0)
+		cover.max_hits = spec.hits
+		add_child(cover)
 
 
 func _draw() -> void:
 	if _stage == 2:
 		_draw_reactor_deck()
+		return
+	if _stage == 3:
+		_draw_forge()
 		return
 	_rng.seed = 1337
 	draw_rect(Rect2(0, 0, W, H), Color(0.075, 0.085, 0.105))
@@ -99,10 +122,6 @@ func _draw() -> void:
 	_draw_wall(Rect2(W - WALL, GATE, WALL, H - GATE), -1.0)
 	_draw_sign(Vector2(23, 520), "AREA A-1", Color(0.85, 0.87, 0.9))
 	_draw_sign(Vector2(W - 23, 860), "FIGHT ZONE", Color(0.95, 0.75, 0.2))
-	for b in _barrels:
-		_draw_barrel(b)
-	for c in _crates:
-		_draw_crate(c)
 
 
 func _draw_plates() -> void:
@@ -237,29 +256,6 @@ func _draw_sign(center: Vector2, text: String, color: Color) -> void:
 	draw_set_transform_matrix(Transform2D.IDENTITY)
 
 
-func _draw_crate(r: Rect2) -> void:
-	draw_rect(Rect2(r.position + Vector2(7, 9), r.size), Color(0, 0, 0, 0.4))
-	draw_rect(r, Color(0.2, 0.13, 0.05))
-	var top := r.grow(-4)
-	draw_rect(top, Color(0.62, 0.42, 0.12))
-	draw_rect(top.grow(-6), Color(0.52, 0.34, 0.09))
-	draw_line(top.position + Vector2(6, 6), top.end - Vector2(6, 6), Color(0.68, 0.48, 0.16), 5.0)
-	draw_line(Vector2(top.end.x - 6, top.position.y + 6), Vector2(top.position.x + 6, top.end.y - 6), Color(0.68, 0.48, 0.16), 5.0)
-	draw_line(top.position, Vector2(top.end.x, top.position.y), Color(1, 0.9, 0.6, 0.35), 2.0)
-	for corner in [top.position, Vector2(top.end.x - 12, top.position.y), Vector2(top.position.x, top.end.y - 12), top.end - Vector2(12, 12)]:
-		draw_rect(Rect2(corner, Vector2(12, 12)), Color(0.12, 0.12, 0.13))
-		draw_line(corner + Vector2(0, 12), corner + Vector2(12, 0), Color(0.95, 0.7, 0.1), 3.0)
-
-
-func _draw_barrel(p: Vector2) -> void:
-	draw_circle(p + Vector2(6, 8), 22, Color(0, 0, 0, 0.4))
-	draw_circle(p, 21, Color(0.35, 0.07, 0.05))
-	draw_circle(p, 17, Color(0.62, 0.12, 0.08))
-	draw_arc(p, 12, 0, TAU, 32, Color(0.3, 0.05, 0.04), 2.0)
-	draw_circle(p + Vector2(-6, -6), 4, Color(0.2, 0.2, 0.22))
-	draw_arc(p, 19, PI, PI * 1.5, 16, Color(1, 0.8, 0.7, 0.35), 2.0)
-
-
 # --- level 2: reactor deck -----------------------------------------------------------------
 
 func _draw_reactor_deck() -> void:
@@ -303,8 +299,6 @@ func _draw_reactor_deck() -> void:
 	_draw_reactor_wall(Rect2(W - WALL, GATE, WALL, H - GATE), -1.0, pulse)
 	_draw_sign(Vector2(23, 520), "SECTOR B-7", Color(1, 0.65, 0.25))
 	_draw_sign(Vector2(W - 23, 860), "REACTOR", Color(0.35, 0.9, 1.0))
-	for p in _pylons:
-		_draw_pylon(p, pulse)
 
 
 func _draw_coolant(r: Rect2, pulse: float) -> void:
@@ -346,13 +340,139 @@ func _draw_reactor_wall(r: Rect2, inward: float, pulse: float) -> void:
 		y += 160
 
 
-func _draw_pylon(p: Vector2, pulse: float) -> void:
-	draw_circle(p + Vector2(7, 10), PYLON_RADIUS + 2, Color(0, 0, 0, 0.45))
-	draw_circle(p, PYLON_RADIUS, Color(0.2, 0.17, 0.15))
-	draw_arc(p, PYLON_RADIUS - 3, 0, TAU, 40, Color(0.45, 0.4, 0.36), 4.0, true)
-	for i in 6:
-		var a := i * TAU / 6.0
-		draw_line(p + Vector2.from_angle(a) * 18, p + Vector2.from_angle(a) * (PYLON_RADIUS - 6), Color(0.08, 0.07, 0.06), 3.0)
-	draw_circle(p, 18, Color(0.05, 0.25, 0.28))
-	draw_circle(p, 13, Color(0.3, 0.9, 1.0, 0.6 + 0.4 * pulse))
-	draw_circle(p - Vector2(4, 4), 5, Color(0.85, 1.0, 1.0))
+# --- level 3: volcanic forge -----------------------------------------------------------------
+
+func _setup_forge() -> void:
+	# Lava glow lives on its own layer so it can pulse without repainting the whole floor.
+	_lava_layer = Node2D.new()
+	add_child(_lava_layer)
+	_lava_layer.draw.connect(_draw_lava)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 4242
+	for i in 11:
+		var p := Vector2(rng.randf_range(120, 600), rng.randf_range(220, 1180))
+		var dir := Vector2.from_angle(rng.randf() * TAU)
+		var crack := PackedVector2Array([p])
+		for s in rng.randi_range(6, 12):
+			dir = dir.rotated(rng.randf_range(-0.7, 0.7))
+			p += dir * rng.randf_range(24.0, 46.0)
+			p = p.clamp(Vector2(WALL + 70, GATE + 40), Vector2(W - WALL - 70, H - 60))
+			crack.append(p)
+		_cracks.append(crack)
+	# Rising embers over the whole arena.
+	var embers := GPUParticles2D.new()
+	var mat := ParticleProcessMaterial.new()
+	mat.particle_flag_disable_z = true
+	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	mat.emission_box_extents = Vector3(360, 20, 0)
+	mat.direction = Vector3(0, -1, 0)
+	mat.spread = 28.0
+	mat.initial_velocity_min = 40.0
+	mat.initial_velocity_max = 120.0
+	mat.gravity = Vector3(0, -12, 0)
+	mat.scale_min = 0.05
+	mat.scale_max = 0.14
+	var ramp := Gradient.new()
+	ramp.set_color(0, Color(1, 0.75, 0.3, 1))
+	ramp.set_color(1, Color(1, 0.25, 0.05, 0))
+	var ramp_tex := GradientTexture1D.new()
+	ramp_tex.gradient = ramp
+	mat.color_ramp = ramp_tex
+	embers.process_material = mat
+	embers.texture = load("res://assets/fx/glow.tres")
+	var add := CanvasItemMaterial.new()
+	add.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+	embers.material = add
+	embers.amount = 70
+	embers.lifetime = 8.0
+	embers.preprocess = 8.0
+	embers.position = Vector2(360, 1300)
+	embers.visibility_rect = Rect2(-420, -1400, 840, 1460)
+	embers.z_as_relative = false
+	embers.z_index = 7
+	add_child(embers)
+
+
+func _draw_forge() -> void:
+	_rng.seed = 9001
+	draw_rect(Rect2(0, 0, W, H), Color(0.045, 0.04, 0.04))
+	# Basalt: tops of hexagonal columns, each a slightly different shade.
+	var r := 44.0
+	var col := 0
+	var x := WALL - r
+	while x < W - WALL + r:
+		var y := GATE + (r * 0.866 if col % 2 else 0.0)
+		while y < H + r:
+			var v := _rng.randf_range(-0.018, 0.018)
+			var hex := PackedVector2Array()
+			for i in 6:
+				hex.append(Vector2(x, y) + Vector2.from_angle(i * TAU / 6.0) * (r - 3.0))
+			draw_colored_polygon(hex, Color(0.1 + v, 0.09 + v, 0.088 + v))
+			draw_line(hex[3], hex[4], Color(1, 0.9, 0.8, 0.05), 2.0)
+			draw_line(hex[0], hex[1], Color(0, 0, 0, 0.35), 2.0)
+			y += r * 1.732
+		x += r * 1.5
+		col += 1
+	# Warm light pools where the lava runs.
+	for crack in _cracks:
+		draw_circle(crack[crack.size() / 2], 110.0, Color(1, 0.35, 0.05, 0.05))
+	_draw_hazard(Rect2(WALL, GATE + 8, W - 2 * WALL, 14))
+	_draw_hazard(Rect2(WALL, H - 44, W - 2 * WALL, 14))
+	_draw_forge_gate()
+	_draw_forge_wall(Rect2(0, GATE, WALL, H - GATE), 1.0)
+	_draw_forge_wall(Rect2(W - WALL, GATE, WALL, H - GATE), -1.0)
+	_draw_sign(Vector2(23, 520), "VOLCANIC FORGE", Color(1, 0.6, 0.2))
+	_draw_sign(Vector2(W - 23, 860), "HEAT WARNING", Color(1, 0.35, 0.15))
+	# Props hug the edges only (the rocks are destructible Cover nodes).
+	for a in [Vector2(80, 470), Vector2(640, 980)]:
+		_draw_anvil(a)
+	for c in [Vector2(76, 820), Vector2(646, 600), Vector2(640, 250)]:
+		_draw_crucible(c)
+
+
+func _draw_lava() -> void:
+	var pulse := 0.7 + 0.3 * sin(_t * 2.6)
+	for crack in _cracks:
+		_lava_layer.draw_polyline(crack, Color(1, 0.3, 0.03, 0.14 * pulse), 18.0, true)
+		_lava_layer.draw_polyline(crack, Color(0.06, 0.03, 0.02), 7.0, true)
+		_lava_layer.draw_polyline(crack, Color(1, 0.38, 0.04, 0.85 * pulse), 4.5, true)
+		_lava_layer.draw_polyline(crack, Color(1, 0.85, 0.4, 0.8 * pulse), 1.6, true)
+
+
+func _draw_forge_gate() -> void:
+	draw_rect(Rect2(0, 0, W, GATE), Color(0.05, 0.04, 0.04))
+	var x := WALL + 40.0
+	while x < W - WALL - 60:
+		draw_rect(Rect2(x, 40, 44, 70), Color(0.12, 0.09, 0.08))
+		draw_rect(Rect2(x + 8, 60, 28, 40), Color(1, 0.4, 0.05, 0.75))
+		draw_rect(Rect2(x + 14, 72, 16, 24), Color(1, 0.8, 0.35, 0.8))
+		x += 78.0
+	draw_rect(Rect2(0, GATE - 12, W, 12), Color(0.16, 0.12, 0.1))
+	draw_line(Vector2(0, GATE - 12), Vector2(W, GATE - 12), Color(1, 0.6, 0.3, 0.2), 2.0)
+
+
+func _draw_forge_wall(r: Rect2, inward: float) -> void:
+	draw_rect(r, Color(0.07, 0.055, 0.05))
+	var edge := r.end.x if inward > 0 else r.position.x
+	draw_rect(Rect2(edge - (8 if inward > 0 else 0), r.position.y, 8, r.size.y), Color(0.14, 0.1, 0.08))
+	# Lava dripping down the cliff face.
+	var y := r.position.y + 70
+	while y < r.end.y - 40:
+		var dx := r.get_center().x + 4.0 * inward
+		draw_line(Vector2(dx, y), Vector2(dx, y + 50), Color(1, 0.35, 0.04, 0.7), 4.0)
+		draw_circle(Vector2(dx, y + 52), 4.0, Color(1, 0.7, 0.25))
+		y += 190
+
+
+func _draw_anvil(p: Vector2) -> void:
+	draw_rect(Rect2(p + Vector2(-26, -12) + Vector2(6, 8), Vector2(52, 24)), Color(0, 0, 0, 0.4))
+	draw_rect(Rect2(p + Vector2(-26, -12), Vector2(52, 24)), Color(0.2, 0.19, 0.19))
+	draw_colored_polygon(PackedVector2Array([p + Vector2(-26, -12), p + Vector2(-40, -4), p + Vector2(-26, 4)]), Color(0.2, 0.19, 0.19))
+	draw_line(p + Vector2(-24, -10), p + Vector2(24, -10), Color(1, 0.9, 0.8, 0.2), 2.0)
+
+
+func _draw_crucible(p: Vector2) -> void:
+	draw_circle(p + Vector2(6, 8), 24, Color(0, 0, 0, 0.4))
+	draw_circle(p, 23, Color(0.18, 0.15, 0.14))
+	draw_circle(p, 16, Color(1, 0.4, 0.05))
+	draw_circle(p - Vector2(3, 3), 8, Color(1, 0.85, 0.4))

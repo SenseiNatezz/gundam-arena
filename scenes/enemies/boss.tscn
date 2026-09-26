@@ -29,6 +29,7 @@ xp_orbs = 20
 xp_value = 3
 explosion_size = 2.5
 knockback_resist = 1.0
+flash_strength = 0.4
 frames = 4
 anim_fps = 6.0
 

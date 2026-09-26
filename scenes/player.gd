@@ -236,10 +236,13 @@ func _check_contact_damage() -> void:
 			return
 
 
-func take_damage(amount: float, from_pos: Vector2) -> void:
+## `heat`: fire damage (fireballs, eruptions, flame slams) - reduced by the Heat Shield upgrade.
+func take_damage(amount: float, from_pos: Vector2, heat := false) -> void:
 	if dead or _invuln > 0.0 or _dash_time_left > 0.0 or casting or GameState.debug.god:
 		return
 	_knockback = (global_position - from_pos).normalized() * 520.0
+	if heat:
+		amount *= 1.0 - minf(GameState.stats.heat_resist, 0.8)
 	if shield_charges > 0:
 		shield_charges -= 1
 		_shield_recharge = SHIELD_RECHARGE

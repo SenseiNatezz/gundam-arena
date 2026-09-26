@@ -30,6 +30,7 @@ xp_orbs = 24
 xp_value = 3
 explosion_size = 2.8
 knockback_resist = 1.0
+flash_strength = 0.4
 
 [node name="Telegraph" type="Node2D" parent="."]
 script = ExtResource("5")

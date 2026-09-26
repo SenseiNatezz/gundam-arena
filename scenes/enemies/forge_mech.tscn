@@ -1,0 +1,76 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scenes/enemies/forge_mech.gd" id="1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/forge_mech.png" id="2"]
+[ext_resource type="Shader" path="res://shaders/hit_flash.gdshader" id="3"]
+[ext_resource type="Texture2D" path="res://assets/fx/glow.tres" id="4"]
+[ext_resource type="Script" path="res://scenes/enemies/forge_telegraph.gd" id="5"]
+
+[sub_resource type="ShaderMaterial" id="flash_mat"]
+resource_local_to_scene = true
+shader = ExtResource("3")
+shader_parameter/flash = 0.0
+shader_parameter/flash_color = Color(1, 0.9, 0.8, 1)
+
+[sub_resource type="CanvasItemMaterial" id="add"]
+blend_mode = 1
+
+[sub_resource type="CircleShape2D" id="shape"]
+radius = 85.0
+
+[node name="ForgeMech" type="Area2D"]
+collision_layer = 4
+collision_mask = 0
+script = ExtResource("1")
+max_hp = 12000.0
+move_speed = 90.0
+contact_damage = 22.0
+xp_orbs = 20
+xp_value = 3
+explosion_size = 2.4
+knockback_resist = 1.0
+flash_strength = 0.4
+
+[node name="Telegraph" type="Node2D" parent="."]
+script = ExtResource("5")
+
+[node name="Shadow" type="Sprite2D" parent="."]
+modulate = Color(0, 0, 0, 0.55)
+position = Vector2(16, 24)
+scale = Vector2(4.2, 4.2)
+texture = ExtResource("4")
+
+[node name="Heat" type="Sprite2D" parent="."]
+modulate = Color(1, 0.3, 0.05, 0.3)
+material = SubResource("add")
+scale = Vector2(4.5, 4.5)
+texture = ExtResource("4")
+
+[node name="Sprite" type="Sprite2D" parent="."]
+material = SubResource("flash_mat")
+scale = Vector2(0.55, 0.55)
+texture = ExtResource("2")
+
+[node name="Furnace" type="Sprite2D" parent="."]
+modulate = Color(1, 0.45, 0.08, 0.8)
+material = SubResource("add")
+position = Vector2(0, 10)
+scale = Vector2(1.2, 1.2)
+texture = ExtResource("4")
+
+[node name="FistL" type="Sprite2D" parent="."]
+modulate = Color(1, 0.4, 0.05, 0.7)
+material = SubResource("add")
+position = Vector2(-70, 96)
+scale = Vector2(0.8, 0.5)
+texture = ExtResource("4")
+
+[node name="FistR" type="Sprite2D" parent="."]
+modulate = Color(1, 0.4, 0.05, 0.7)
+material = SubResource("add")
+position = Vector2(70, 96)
+scale = Vector2(0.8, 0.5)
+texture = ExtResource("4")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("shape")
