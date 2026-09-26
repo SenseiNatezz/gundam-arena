@@ -60,6 +60,7 @@ var _target: Node2D
 
 func _ready() -> void:
 	GameState.player = self
+	_apply_customization()
 	_max_hp = GameState.stats.max_hp
 	hp = _max_hp
 	shield_charges = GameState.stats.shield
@@ -238,6 +239,22 @@ func _break_ice() -> void:
 	Sfx.play(&"freeze", -8.0, 0.2)
 
 
+## Title-screen customization: armor paint on the sprite, energy color on thrusters + muzzle.
+func _apply_customization() -> void:
+	GameState.apply_paint(sprite.material as ShaderMaterial)
+	var e := GameState.energy_colors()
+	muzzle_flash.modulate = Color(e.core.lerp(e.mid, 0.4), 1.0)
+	var ramp := Gradient.new()
+	ramp.offsets = PackedFloat32Array([0.0, 0.35, 1.0])
+	ramp.colors = PackedColorArray([e.core, Color(e.mid, 0.8), Color(e.mid.darkened(0.2), 0.0)])
+	var ramp_tex := GradientTexture1D.new()
+	ramp_tex.gradient = ramp
+	for t in thrusters:
+		var pm := (t.process_material as ParticleProcessMaterial).duplicate() as ParticleProcessMaterial
+		pm.color_ramp = ramp_tex
+		t.process_material = pm
+
+
 func make_invulnerable() -> void:
 	_invuln = INF
 
@@ -259,7 +276,7 @@ func _spawn_afterimage() -> void:
 	ghost.global_position = sprite.global_position
 	ghost.rotation = body.rotation
 	ghost.scale = sprite.scale
-	ghost.modulate = Color(0.35, 0.75, 1.0, 0.55)
+	ghost.modulate = Color(GameState.energy_colors().glow, 0.55)
 	ghost.z_index = -1
 	GameState.world.add_fx(ghost)
 	var tw := ghost.create_tween()

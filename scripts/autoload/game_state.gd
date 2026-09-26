@@ -81,6 +81,12 @@ func _ready() -> void:
 	for path in UPGRADE_PATHS:
 		upgrades.append(load(path))
 	reset()
+	load_settings()
+	for arg in OS.get_cmdline_user_args():  # preview-only overrides (not saved): --paint=crimson --energy=pink
+		if arg.begins_with("--paint=") and PAINTS.has(StringName(arg.get_slice("=", 1))):
+			paint = StringName(arg.get_slice("=", 1))
+		if arg.begins_with("--energy=") and ENERGIES.has(StringName(arg.get_slice("=", 1))):
+			energy = StringName(arg.get_slice("=", 1))
 
 
 func _process(delta: float) -> void:
@@ -192,3 +198,119 @@ func consume_saber_request() -> bool:
 	saber_requested = false
 	return requested
 
+
+
+# --- save / continue ---------------------------------------------------------------------------
+# Progress is saved at the start of every level (the build the pilot entered it with), so
+# CONTINUE on the title screen drops you back into the last level you reached.
+
+## A var (not const) so the smoke test can use its own file and never touch the real save.
+var save_path := "user://save.json"
+
+
+func has_save() -> bool:
+	return FileAccess.file_exists(save_path)
+
+
+func save_progress() -> void:
+	var data := _stage_snapshot.duplicate()
+	data["stage"] = stage
+	var f := FileAccess.open(save_path, FileAccess.WRITE)
+	if f:
+		f.store_string(JSON.stringify(data))
+
+
+func delete_save() -> void:
+	if has_save():
+		DirAccess.remove_absolute(save_path)
+
+
+## Loads the save and arms carry_over so the next Main scene resumes that level.
+func load_progress() -> bool:
+	var f := FileAccess.open(save_path, FileAccess.READ)
+	if f == null:
+		return false
+	var data = JSON.parse_string(f.get_as_text())
+	if not data is Dictionary or not data.has("stage"):
+		return false
+	reset()
+	stats = BASE_STATS.duplicate()
+	for key in data.get("stats", {}):
+		stats[key] = data.stats[key]
+	stacks = {}
+	for key in data.get("stacks", {}):
+		stacks[StringName(key)] = int(data.stacks[key])
+	stage = clampi(int(data.stage), 1, FINAL_STAGE)
+	level = int(data.get("level", 1))
+	xp = int(data.get("xp", 0))
+	xp_needed = int(data.get("xp_needed", _xp_for(level)))
+	kills = int(data.get("kills", 0))
+	run_time = float(data.get("run_time", 0.0))
+	carry_over = true
+	return true
+
+
+# --- customization -----------------------------------------------------------------------------
+# Armor paint recolors the mech's blue armor panels (hit_flash.gdshader "recolor" uniforms);
+# energy color tints thrusters, rifle bolts and the muzzle flash.
+
+const SETTINGS_PATH := "user://settings.cfg"
+const PAINTS := {
+	&"classic": {"name": "CLASSIC BLUE", "swatch": Color(0.18, 0.4, 0.95)},
+	&"crimson": {"name": "CRIMSON", "swatch": Color(0.85, 0.12, 0.12), "hue": 0.99, "sat": 1.05, "val": 1.0},
+	&"forest": {"name": "FOREST GREEN", "swatch": Color(0.15, 0.6, 0.25), "hue": 0.36, "sat": 0.95, "val": 0.9},
+	&"stealth": {"name": "STEALTH BLACK", "swatch": Color(0.14, 0.15, 0.18), "hue": 0.62, "sat": 0.15, "val": 0.42},
+	&"gold": {"name": "ROYAL GOLD", "swatch": Color(0.95, 0.7, 0.15), "hue": 0.12, "sat": 1.0, "val": 1.15},
+}
+const ENERGIES := {
+	&"cyan": {"name": "CYAN", "core": Color(0.85, 0.95, 1.0), "mid": Color(0.25, 0.55, 1.0), "glow": Color(0.25, 0.6, 1.0)},
+	&"pink": {"name": "PINK", "core": Color(1.0, 0.85, 0.95), "mid": Color(1.0, 0.3, 0.75), "glow": Color(1.0, 0.3, 0.7)},
+	&"orange": {"name": "ORANGE", "core": Color(1.0, 0.95, 0.75), "mid": Color(1.0, 0.5, 0.1), "glow": Color(1.0, 0.5, 0.15)},
+	&"green": {"name": "GREEN", "core": Color(0.9, 1.0, 0.85), "mid": Color(0.3, 1.0, 0.35), "glow": Color(0.3, 1.0, 0.4)},
+}
+
+var paint := &"classic"
+var energy := &"cyan"
+var volume := 1.0
+var screen_shake := true
+
+
+func load_settings() -> void:
+	var cfg := ConfigFile.new()
+	if cfg.load(SETTINGS_PATH) == OK:
+		var p := StringName(cfg.get_value("custom", "paint", "classic"))
+		var e := StringName(cfg.get_value("custom", "energy", "cyan"))
+		paint = p if PAINTS.has(p) else &"classic"
+		energy = e if ENERGIES.has(e) else &"cyan"
+		volume = clampf(float(cfg.get_value("settings", "volume", 1.0)), 0.0, 1.0)
+		screen_shake = bool(cfg.get_value("settings", "screen_shake", true))
+	apply_volume()
+
+
+func save_settings() -> void:
+	var cfg := ConfigFile.new()
+	cfg.set_value("custom", "paint", String(paint))
+	cfg.set_value("custom", "energy", String(energy))
+	cfg.set_value("settings", "volume", volume)
+	cfg.set_value("settings", "screen_shake", screen_shake)
+	cfg.save(SETTINGS_PATH)
+
+
+## Applies the chosen armor paint to a hit_flash ShaderMaterial.
+func apply_volume() -> void:
+	var bus := AudioServer.get_bus_index("Master")
+	AudioServer.set_bus_mute(bus, volume <= 0.001)
+	AudioServer.set_bus_volume_db(bus, linear_to_db(maxf(volume, 0.001)))
+
+
+func apply_paint(mat: ShaderMaterial) -> void:
+	var p: Dictionary = PAINTS[paint]
+	mat.set_shader_parameter("recolor", p.has("hue"))
+	if p.has("hue"):
+		mat.set_shader_parameter("target_hue", p.hue)
+		mat.set_shader_parameter("sat_mult", p.sat)
+		mat.set_shader_parameter("val_mult", p.val)
+
+
+func energy_colors() -> Dictionary:
+	return ENERGIES[energy]

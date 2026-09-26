@@ -189,11 +189,18 @@ func _ready() -> void:
 		if stage_arg != "":
 			GameState.stage = clampi(int(stage_arg), 1, GameState.FINAL_STAGE)
 	GameState.snapshot_stage()
+	if OS.get_cmdline_user_args().is_empty():
+		GameState.save_progress()  # CONTINUE on the title screen resumes here
 	GameState.world = self
 	$Arena.setup(GameState.stage)
 	player.bounds = $Arena.play_rect()
 	_add_material.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
 	_pools[&"player"] = _make_pool(PLAYER_BULLET, 160)
+	var energy := GameState.energy_colors()
+	for b: Bullet in _pools[&"player"].items:
+		(b.get_node("Glow") as Sprite2D).modulate = Color(energy.glow, 0.9)
+		(b.get_node("Core") as Sprite2D).modulate = energy.core
+		b.spark_color = energy.core.lerp(energy.mid, 0.5)
 	_pools[&"enemy"] = _make_pool(ENEMY_BULLET, 220)
 	_pools[&"missile"] = _make_pool(MISSILE, 24)
 	_pools[&"enemy_missile"] = _make_pool(ENEMY_MISSILE, 24)
@@ -211,7 +218,7 @@ func _ready() -> void:
 	pause_menu.primary_pressed.connect(_toggle_pause)
 	pause_menu.secondary_pressed.connect(_retry_level)
 	end_screen.primary_pressed.connect(_on_end_primary)
-	end_screen.secondary_pressed.connect(_new_run)
+	end_screen.secondary_pressed.connect(_to_title)
 	var info := GameState.stage_info()
 	hud.show_banner(info.title, "Level %d  ·  Clear %d waves" % [GameState.stage, GameState.TOTAL_WAVES], Color(0.6, 0.85, 1.0), 1.0)
 	_warm_up()
@@ -542,6 +549,8 @@ func add_floor_decal(node: Node2D) -> void:
 
 
 func shake(amount: float) -> void:
+	if not GameState.screen_shake:
+		return
 	_trauma = minf(_trauma + amount, 1.0)
 
 
@@ -636,8 +645,7 @@ func _on_player_died() -> void:
 	get_tree().create_timer(1.6, false).timeout.connect(func() -> void:
 		get_tree().paused = true
 		_end_action = &"retry"
-		end_screen.open("MISSION FAILED", _run_summary(), Color(1.0, 0.3, 0.25), "RETRY LEVEL",
-			"NEW RUN" if GameState.stage > 1 else ""))
+		end_screen.open("MISSION FAILED", _run_summary(), Color(1.0, 0.3, 0.25), "RETRY LEVEL", "MAIN MENU"))
 
 
 var _end_action := &"retry"
@@ -649,12 +657,13 @@ func _show_victory() -> void:
 	if GameState.stage < GameState.FINAL_STAGE:
 		_end_action = &"next"
 		end_screen.open("SECTOR %s CLEARED" % GameState.stage_info().sector, _run_summary() + "\nYour upgrades carry over.",
-			Color(0.45, 1.0, 0.55), "NEXT LEVEL", "NEW RUN")
+			Color(0.45, 1.0, 0.55), "NEXT LEVEL", "MAIN MENU")
 		if GameState.debug.autopilot:
 			get_tree().create_timer(1.0).timeout.connect(_on_end_primary)
 	else:
-		_end_action = &"new_run"
-		end_screen.open("ALL SECTORS CLEARED", _run_summary(), Color(0.45, 1.0, 0.55), "PLAY AGAIN")
+		_end_action = &"title"
+		GameState.delete_save()  # campaign complete
+		end_screen.open("ALL SECTORS CLEARED", _run_summary(), Color(0.45, 1.0, 0.55), "MAIN MENU")
 
 
 func _run_summary() -> String:
@@ -665,6 +674,8 @@ func _run_summary() -> String:
 
 func _on_end_primary() -> void:
 	match _end_action:
+		&"title":
+			_to_title()
 		&"next":
 			GameState.stage += 1
 			GameState.carry_over = true
@@ -681,6 +692,12 @@ func _retry_level() -> void:
 		GameState.restore_stage_snapshot()
 		GameState.carry_over = true
 	_reload()
+
+
+func _to_title() -> void:
+	get_tree().paused = false
+	Engine.time_scale = 1.0
+	get_tree().change_scene_to_file("res://scenes/title/title.tscn")
 
 
 func _new_run() -> void:

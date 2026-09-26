@@ -219,6 +219,23 @@ func _run() -> void:
 	_check("dash breaks the ice", player._freeze_time <= 0.0 and not player.ice_shell.visible)
 	await _frames(80)  # let the chill wear off
 
+	# Save / continue round trip (separate file - never touches the real save).
+	GameState.save_path = "user://smoke_test_save.json"
+	var saved_stage := GameState.stage
+	GameState.snapshot_stage()
+	GameState.save_progress()
+	var saved_level := GameState.level
+	var saved_stacks := GameState.stacks.duplicate()
+	GameState.level = 99
+	GameState.stacks = {}
+	var loaded := GameState.load_progress()
+	_check("save / continue restores progress", loaded and GameState.carry_over and GameState.stage == saved_stage
+		and GameState.level == saved_level and GameState.stacks == saved_stacks, "level %d stacks %s" % [GameState.level, GameState.stacks])
+	GameState.carry_over = false
+	GameState.delete_save()
+	_check("delete_save removes the file", not GameState.has_save())
+	GameState.save_path = "user://save.json"
+
 	# Destructible cover: enemy shots are stopped by a big crate and break it within 5 hits.
 	var crate: Cover = null
 	for cov: Cover in get_tree().get_nodes_in_group("cover"):

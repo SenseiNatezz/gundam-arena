@@ -1,0 +1,352 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scenes/title/title.gd" id="1"]
+[ext_resource type="Texture2D" path="res://assets/title/menu_still.png" id="2"]
+[ext_resource type="VideoStream" path="res://assets/title/menu_video.ogv" id="3"]
+[ext_resource type="Texture2D" path="res://assets/title/gundam_hero_sheet.png" id="5"]
+[ext_resource type="Shader" path="res://shaders/hit_flash.gdshader" id="6"]
+[ext_resource type="Texture2D" path="res://assets/fx/glow.tres" id="7"]
+
+[sub_resource type="ShaderMaterial" id="hero_mat"]
+resource_local_to_scene = true
+shader = ExtResource("6")
+
+[sub_resource type="CanvasItemMaterial" id="add"]
+blend_mode = 1
+
+[sub_resource type="Gradient" id="plume_grad"]
+offsets = PackedFloat32Array(0, 0.3, 1)
+colors = PackedColorArray(0.85, 0.95, 1, 0.95, 0.25, 0.55, 1, 0.65, 0.1, 0.3, 0.8, 0)
+
+[sub_resource type="GradientTexture1D" id="plume_ramp"]
+gradient = SubResource("plume_grad")
+
+[sub_resource type="Curve" id="plume_curve"]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 0.3), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="CurveTexture" id="plume_scale"]
+curve = SubResource("plume_curve")
+
+[sub_resource type="ParticleProcessMaterial" id="plume_mat"]
+resource_local_to_scene = true
+particle_flag_disable_z = true
+emission_shape = 1
+emission_sphere_radius = 14.0
+direction = Vector3(0.55, -1, 0)
+spread = 22.0
+initial_velocity_min = 240.0
+initial_velocity_max = 340.0
+damping_min = 80.0
+damping_max = 140.0
+gravity = Vector3(0, 0, 0)
+scale_min = 1.1
+scale_max = 1.8
+scale_curve = SubResource("plume_scale")
+color_ramp = SubResource("plume_ramp")
+
+[sub_resource type="LabelSettings" id="heading"]
+font_size = 22
+font_color = Color(0.6, 0.85, 1, 1)
+outline_size = 5
+outline_color = Color(0, 0, 0, 0.8)
+
+[sub_resource type="LabelSettings" id="value"]
+font_size = 30
+font_color = Color(1, 1, 1, 1)
+outline_size = 6
+outline_color = Color(0, 0, 0, 0.8)
+
+[sub_resource type="LabelSettings" id="toast"]
+font_size = 24
+font_color = Color(1, 1, 1, 1)
+outline_size = 8
+outline_color = Color(0.02, 0.08, 0.25, 1)
+
+[node name="Title" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1")
+
+[node name="Still" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("2")
+expand_mode = 1
+
+[node name="Video" type="VideoStreamPlayer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+stream = ExtResource("3")
+autoplay = true
+expand = true
+loop = true
+
+[node name="ContinueDim" type="ColorRect" parent="."]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 33.0
+offset_top = 389.0
+offset_right = 297.0
+offset_bottom = 437.0
+mouse_filter = 2
+color = Color(0.01, 0.02, 0.06, 0.6)
+
+[node name="ContinueInfo" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 310.0
+offset_top = 400.0
+offset_right = 700.0
+offset_bottom = 426.0
+theme_override_colors/font_color = Color(0.75, 0.9, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0.05, 0.15, 1)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 15
+
+[node name="Hotspots" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Toast" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -170.0
+offset_bottom = -120.0
+grow_horizontal = 2
+grow_vertical = 0
+label_settings = SubResource("toast")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="CustomizeLayer" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Dim" type="ColorRect" parent="CustomizeLayer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.01, 0.02, 0.07, 0.72)
+
+[node name="Hero" type="Node2D" parent="CustomizeLayer"]
+unique_name_in_owner = true
+position = Vector2(268, 1078)
+
+[node name="Plume" type="GPUParticles2D" parent="CustomizeLayer/Hero"]
+material = SubResource("add")
+position = Vector2(64, -150)
+amount = 80
+lifetime = 0.6
+texture = ExtResource("7")
+visibility_rect = Rect2(-200, -1200, 1200, 1400)
+process_material = SubResource("plume_mat")
+
+[node name="EngineGlow" type="Sprite2D" parent="CustomizeLayer/Hero"]
+modulate = Color(0.25, 0.55, 1, 0.9)
+material = SubResource("add")
+position = Vector2(64, -150)
+scale = Vector2(2.4, 2.4)
+texture = ExtResource("7")
+
+[node name="Sprite" type="Sprite2D" parent="CustomizeLayer/Hero"]
+material = SubResource("hero_mat")
+texture = ExtResource("5")
+hframes = 12
+
+[node name="CustomizePanel" type="PanelContainer" parent="CustomizeLayer"]
+layout_mode = 0
+offset_left = 36.0
+offset_top = 110.0
+offset_right = 684.0
+offset_bottom = 640.0
+
+[node name="VBox" type="VBoxContainer" parent="CustomizeLayer/CustomizePanel"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Header" type="Label" parent="CustomizeLayer/CustomizePanel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 40
+text = "GUNDAM CUSTOMIZATION"
+horizontal_alignment = 1
+
+[node name="PaintHeading" type="Label" parent="CustomizeLayer/CustomizePanel/VBox"]
+layout_mode = 2
+text = "ARMOR PAINT"
+label_settings = SubResource("heading")
+horizontal_alignment = 1
+
+[node name="PaintName" type="Label" parent="CustomizeLayer/CustomizePanel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "CLASSIC BLUE"
+label_settings = SubResource("value")
+horizontal_alignment = 1
+
+[node name="PaintRow" type="HBoxContainer" parent="CustomizeLayer/CustomizePanel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 20
+alignment = 1
+
+[node name="Gap" type="Control" parent="CustomizeLayer/CustomizePanel/VBox"]
+custom_minimum_size = Vector2(0, 14)
+layout_mode = 2
+
+[node name="EnergyHeading" type="Label" parent="CustomizeLayer/CustomizePanel/VBox"]
+layout_mode = 2
+text = "ENERGY COLOR"
+label_settings = SubResource("heading")
+horizontal_alignment = 1
+
+[node name="EnergyName" type="Label" parent="CustomizeLayer/CustomizePanel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "CYAN"
+label_settings = SubResource("value")
+horizontal_alignment = 1
+
+[node name="EnergyRow" type="HBoxContainer" parent="CustomizeLayer/CustomizePanel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 20
+alignment = 1
+
+[node name="Hint" type="Label" parent="CustomizeLayer/CustomizePanel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.8, 0.95, 0.85)
+theme_override_font_sizes/font_size = 17
+text = "Energy tints the thrusters, rifle bolts and muzzle flash. Live preview below."
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="CustomizeBack" type="Button" parent="CustomizeLayer/CustomizePanel/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+focus_mode = 0
+text = "BACK"
+
+[node name="SettingsLayer" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Dim" type="ColorRect" parent="SettingsLayer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.01, 0.02, 0.07, 0.72)
+
+[node name="SettingsPanel" type="PanelContainer" parent="SettingsLayer"]
+layout_mode = 0
+offset_left = 60.0
+offset_top = 360.0
+offset_right = 660.0
+offset_bottom = 640.0
+
+[node name="VBox" type="VBoxContainer" parent="SettingsLayer/SettingsPanel"]
+layout_mode = 2
+theme_override_constants/separation = 22
+
+[node name="Header" type="Label" parent="SettingsLayer/SettingsPanel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 44
+text = "SETTINGS"
+horizontal_alignment = 1
+
+[node name="VolumeRow" type="HBoxContainer" parent="SettingsLayer/SettingsPanel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="VolumeLabel" type="Label" parent="SettingsLayer/SettingsPanel/VBox/VolumeRow"]
+custom_minimum_size = Vector2(150, 0)
+layout_mode = 2
+text = "SOUND"
+label_settings = SubResource("heading")
+
+[node name="Volume" type="HSlider" parent="SettingsLayer/SettingsPanel/VBox/VolumeRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+value = 100.0
+
+[node name="VolumeValue" type="Label" parent="SettingsLayer/SettingsPanel/VBox/VolumeRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(80, 0)
+layout_mode = 2
+text = "100%"
+label_settings = SubResource("value")
+horizontal_alignment = 2
+
+[node name="Shake" type="CheckButton" parent="SettingsLayer/SettingsPanel/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 60)
+layout_mode = 2
+focus_mode = 0
+theme_override_font_sizes/font_size = 24
+button_pressed = true
+text = "SCREEN SHAKE"
+
+[node name="SettingsBack" type="Button" parent="SettingsLayer/SettingsPanel/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+focus_mode = 0
+text = "BACK"
+
+[node name="Fade" type="ColorRect" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 0)

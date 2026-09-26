@@ -20,6 +20,18 @@ of each level:
 **Cover:** crates, red barrels, reactor pylons, forge rocks and ice blocks block enemy fire (your own shots fly over
 them) but break after a few hits. Red barrels explode when destroyed, damaging nearby enemies.
 
+## Main menu
+
+The game opens on an animated main menu video (`assets/title/menu_video.ogv`) with tappable buttons:
+
+- **New Game** – start from Level 1.
+- **Continue** – the game saves at the start of every level; Continue resumes the last level you reached
+  with your upgrades and pilot level.
+- **Gundam Customization** – armor paint (Classic Blue, Crimson, Forest Green, Stealth Black, Royal Gold)
+  and energy color (thrusters, rifle bolts, muzzle flash), with a live animated preview. Saved.
+- **Settings** – sound volume and screen shake. Saved.
+- **Exit** – quits the Windows version.
+
 ## Play
 
 - **In your browser (PC or phone):** https://senseinatezz.github.io/gundam-arena/
@@ -62,6 +74,7 @@ Exports: *Project → Export* has **Web** (single-threaded, works on GitHub Page
 
 | Path | What |
 | --- | --- |
+| `scenes/title/` | Main menu: menu video, button hotspots, customization and settings panels |
 | `scenes/main.gd` | Per-level waves (`STAGE_WAVES`), pools, spawn helpers, eruptions, level-up / pause / end flow, debug flags |
 | `scenes/player.gd` | Movement, dash, auto-aim, missiles, shield, damage |
 | `scenes/enemies/` | `enemy.gd` base class, all enemy types and the three bosses (+ their telegraph drawing) |
@@ -92,6 +105,8 @@ blender -b --factory-startup --python tools/render_stage2.py
 blender -b --factory-startup --python tools/render_stage3.py
 blender -b --factory-startup --python tools/render_stage4.py
 blender -b "path/to/Gundam_Sword_2D_Sprites.blend" --python tools/render_gundam_sword.py
+blender -b "path/to/Gundam_2D_Sprites.blend" --python tools/render_title_gundam.py
+blender -b --factory-startup --python tools/convert_menu_video.py -- "path/to/IdleMenu_Animation_FullFrame.mp4"
 ```
 
 `render_gundam.py` renders each action (Hover_Idle, Boost_Loop, Bank_Left/Right, Dash_Forward, Rifle_Fire,
@@ -107,5 +122,9 @@ Pass after `--`: `--god`, `--autopilot` (dodging bot, auto-picks upgrades and ad
 `--stage=N`, `--wave=N`, `--level=N`, `--hp=N`, `--boss-hp=0.5`, `--damage-cover`, `--beam-at=S`, `--saber-at=S`, `--demo-ring`,
 `--upgrades=homing,homing`, `--preview-zoom=1.6`, `--freeze-at=S`,
 `--upgrade-menu`, `--pause-menu`, `--shot=path.png --shot-time=S` (screenshot then quit).
+
+The main menu is skipped when debug flags are given; add `--title` to see it (plus `--title-customize`,
+`--title-settings`, `--title-hover=settings`, `--title-start`). `--paint=crimson --energy=pink` preview a
+look without saving it.
 
 Input smoke test: `Godot..._console.exe --headless --path . -- --smoke-test --god`
