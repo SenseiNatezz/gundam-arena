@@ -8,7 +8,8 @@ const DASH_SPEED := 1250.0
 const DASH_TIME := 0.18
 const SHIELD_RECHARGE := 7.0
 const MISSILE_INTERVAL := 1.4
-const BOUNDS := Rect2(78, 200, 564, 1030)
+## Where the mech may move; each level sets this from Arena.play_rect() (walls, reactors etc.).
+var bounds := Rect2(78, 200, 564, 1030)
 const AIM_RANGE := 1000.0
 const BEAM_RIFLE := preload("res://scenes/abilities/beam_rifle.gd")
 const BEAM_COOLDOWN := 12.0
@@ -41,6 +42,10 @@ var _flash := 0.0
 var _muzzle_time := 0.0
 var _afterimage_timer := 0.0
 var _max_hp := 100.0
+## Cryo Reactor status effects: chill slows movement; freeze encases the mech in ice (dash breaks it).
+var _chill_time := 0.0
+var _freeze_time := 0.0
+const CHILL_SPEED := 0.55
 var _target: Node2D
 
 @onready var body: Node2D = $Body
@@ -50,6 +55,7 @@ var _target: Node2D
 @onready var thrusters: Array[GPUParticles2D] = [$Body/ThrusterL, $Body/ThrusterR]
 @onready var hurtbox: Area2D = $Hurtbox
 @onready var shield_ring: Node2D = $ShieldRing
+@onready var ice_shell: Node2D = $IceShell
 
 
 func _ready() -> void:
@@ -94,7 +100,14 @@ func _physics_process(delta: float) -> void:
 		saber_pressed = true
 	if saber_pressed and saber_ready():
 		start_slash()
+	_chill_time = maxf(_chill_time - delta, 0.0)
+	if _freeze_time > 0.0:
+		_freeze_time -= delta
+		input = Vector2.ZERO
 	var dash_pressed := (live_input and Input.is_action_just_pressed("dash")) or GameState.consume_dash_request()
+	if dash_pressed and _freeze_time > 0.0:
+		_break_ice()
+		dash_pressed = false
 	if dash_pressed and dash_cooldown_left <= 0.0:
 		_start_dash(input)
 
@@ -106,11 +119,16 @@ func _physics_process(delta: float) -> void:
 			_afterimage_timer = 0.03
 			_spawn_afterimage()
 	else:
-		_move_velocity = _move_velocity.lerp(input * s.move_speed, 1.0 - exp(-16.0 * delta))
+		_move_velocity = _move_velocity.lerp(input * s.move_speed * (CHILL_SPEED if _chill_time > 0.0 else 1.0), 1.0 - exp(-16.0 * delta))
 	velocity = _move_velocity + _knockback
+	if _freeze_time > 0.0:
+		# Encased in ice: no sliding from momentum or knockback.
+		velocity = Vector2.ZERO
+		_move_velocity = Vector2.ZERO
+		_knockback = Vector2.ZERO
 	_knockback = _knockback.lerp(Vector2.ZERO, 1.0 - exp(-10.0 * delta))
 	move_and_slide()
-	global_position = global_position.clamp(BOUNDS.position, BOUNDS.end)
+	global_position = global_position.clamp(bounds.position, bounds.end)
 
 	_update_weapons(delta)
 	if _slash_time_left > 0.0:
@@ -213,6 +231,13 @@ func fire_beam() -> void:
 	sprite.position = Vector2(0, 9)
 
 
+func _break_ice() -> void:
+	_freeze_time = 0.0
+	ice_shell.set("frozen", false)
+	GameState.world.spawn_snow_burst(global_position, 0.9)
+	Sfx.play(&"freeze", -8.0, 0.2)
+
+
 func make_invulnerable() -> void:
 	_invuln = INF
 
@@ -263,7 +288,8 @@ func _check_contact_damage() -> void:
 
 
 ## `heat`: fire damage (fireballs, eruptions, flame slams) - reduced by the Heat Shield upgrade.
-func take_damage(amount: float, from_pos: Vector2, heat := false) -> void:
+## `chill` / `freeze`: seconds of slow / ice-encasement from snow and ice attacks.
+func take_damage(amount: float, from_pos: Vector2, heat := false, chill := 0.0, freeze := 0.0) -> void:
 	if dead or _invuln > 0.0 or _dash_time_left > 0.0 or GameState.debug.god:
 		return
 	_knockback = (global_position - from_pos).normalized() * 520.0
@@ -277,6 +303,15 @@ func take_damage(amount: float, from_pos: Vector2, heat := false) -> void:
 		Sfx.play(&"shield", -4.0)
 		return
 	hp -= amount
+	if chill > 0.0 or freeze > 0.0:
+		_chill_time = maxf(_chill_time, maxf(chill, freeze + 1.0))
+		if freeze > 0.0 and _freeze_time <= 0.0:
+			_freeze_time = freeze
+			_move_velocity = Vector2.ZERO
+			Sfx.play(&"freeze", -4.0, 0.1)
+			ice_shell.set("frozen", true)
+		else:
+			Sfx.play(&"snow_hit", -8.0, 0.15)
 	_invuln = 0.8
 	_flash = 1.0
 	GameState.world.shake(0.5)
@@ -348,6 +383,11 @@ func _update_visuals(delta: float, input: Vector2) -> void:
 	(sprite.material as ShaderMaterial).set_shader_parameter("flash", _flash)
 	var blinking := _invuln > 0.0 and _dash_time_left <= 0.0 and _flash < 0.9 and hp < _max_hp
 	sprite.modulate.a = 0.45 if blinking and int(_invuln * 20.0) % 2 == 0 else 1.0
+	# Frosty tint while chilled.
+	var tint := Color(0.7, 0.88, 1.0) if _chill_time > 0.0 else Color.WHITE
+	sprite.modulate = Color(tint, sprite.modulate.a)
+	if _freeze_time <= 0.0 and ice_shell.get("frozen"):
+		ice_shell.set("frozen", false)
 
 
 ## Debug-only bot (--autopilot): wanders the lower arena, steers away from threats, dashes through bullets.

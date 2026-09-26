@@ -65,6 +65,9 @@ func _build() -> void:
 	_streams[&"beam_rifle"] = _synth(0.55, 2600, 260, 0.38, 0.75, 0.7, 0.85, 0.25, 1.1)
 	# Beam Saber: airy whoosh sweeping down with a bright metallic edge.
 	_streams[&"saber"] = _synth(0.38, 1500, 380, 0.22, 0.2, 0.8, 0.25, 0.85, 1.3, 0.02)
+	# Cryo Reactor: crackling freeze and a soft snow impact.
+	_streams[&"freeze"] = _synth(0.4, 3200, 1600, 0.18, 0.35, 0.65, 0.9, 0.55, 1.1)
+	_streams[&"snow_hit"] = _synth(0.2, 320, 120, 0.12, 0.0, 0.75, 0.25, 0.08, 1.4)
 	var notes: Array[AudioStreamWAV] = []
 	for f in [523.0, 659.0, 784.0, 1047.0]:
 		notes.append(_synth(0.09, f, f, 0.4, 0.25, 0.0, 0.0, 0.0, 0.8))

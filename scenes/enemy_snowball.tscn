@@ -1,0 +1,60 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scenes/bullet.gd" id="1"]
+[ext_resource type="Texture2D" path="res://assets/fx/snowflake.tres" id="2"]
+[ext_resource type="Texture2D" path="res://assets/fx/glow.tres" id="3"]
+
+[sub_resource type="CanvasItemMaterial" id="add"]
+blend_mode = 1
+
+[sub_resource type="Gradient" id="trail_grad"]
+colors = PackedColorArray(1, 1, 1, 0.9, 0.85, 0.93, 1, 0)
+
+[sub_resource type="GradientTexture1D" id="trail_ramp"]
+gradient = SubResource("trail_grad")
+
+[sub_resource type="ParticleProcessMaterial" id="trail_mat"]
+particle_flag_disable_z = true
+direction = Vector3(0, 1, 0)
+spread = 40.0
+initial_velocity_min = 10.0
+initial_velocity_max = 40.0
+gravity = Vector3(0, 0, 0)
+scale_min = 0.15
+scale_max = 0.3
+color_ramp = SubResource("trail_ramp")
+
+[sub_resource type="CircleShape2D" id="shape"]
+radius = 12.0
+
+[node name="EnemySnowball" type="Area2D"]
+collision_layer = 16
+collision_mask = 66
+monitorable = false
+script = ExtResource("1")
+player_owned = false
+lifetime = 6.0
+spark_color = Color(0.85, 0.95, 1, 1)
+chill = 1.3
+
+[node name="Trail" type="GPUParticles2D" parent="."]
+emitting = false
+amount = 24
+lifetime = 0.4
+texture = ExtResource("2")
+visibility_rect = Rect2(-200, -200, 400, 400)
+process_material = SubResource("trail_mat")
+
+[node name="Glow" type="Sprite2D" parent="."]
+modulate = Color(0.55, 0.85, 1, 0.55)
+material = SubResource("add")
+scale = Vector2(0.8, 0.8)
+texture = ExtResource("3")
+
+[node name="Ball" type="Sprite2D" parent="."]
+modulate = Color(0.96, 0.98, 1, 1)
+scale = Vector2(0.95, 0.95)
+texture = ExtResource("2")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("shape")

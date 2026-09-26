@@ -9,7 +9,7 @@ extends Area2D
 
 const COVER_LAYER := 64  # physics layer 7 "cover"
 
-var kind := &"crate"  # crate, barrel, pylon, rock
+var kind := &"crate"  # crate, barrel, pylon, rock, ice
 var size := Vector2(60, 60)  # crates
 var radius := 20.0  # barrels, pylons, rocks
 var max_hits := 5
@@ -43,7 +43,7 @@ func _ready() -> void:
 
 func _make_shape(scale_factor: float) -> CollisionShape2D:
 	var shape := CollisionShape2D.new()
-	if kind == &"crate":
+	if kind == &"crate" or kind == &"ice":
 		var rect := RectangleShape2D.new()
 		rect.size = size
 		shape.shape = rect
@@ -101,6 +101,8 @@ func _draw() -> void:
 	match kind:
 		&"crate":
 			_draw_crate(Rect2(-size / 2 + o, size))
+		&"ice":
+			_draw_ice(Rect2(-size / 2 + o, size))
 		&"barrel":
 			_draw_barrel(o)
 		&"pylon":
@@ -110,7 +112,7 @@ func _draw() -> void:
 	_draw_cracks(o, rng)
 	if _flash > 0.0:
 		var white := Color(1, 1, 1, 0.45 * _flash)
-		if kind == &"crate":
+		if kind == &"crate" or kind == &"ice":
 			draw_rect(Rect2(-size / 2 + o, size), white)
 		else:
 			draw_circle(o, radius, white)
@@ -119,7 +121,7 @@ func _draw() -> void:
 func _draw_cracks(o: Vector2, rng: RandomNumberGenerator) -> void:
 	var damage := 1.0 - float(hits_left) / max_hits
 	var count := int(damage * 6.0)
-	var reach := (minf(size.x, size.y) * 0.5 if kind == &"crate" else radius) * 0.9
+	var reach := (minf(size.x, size.y) * 0.5 if kind in [&"crate", &"ice"] else radius) * 0.9
 	for i in count:
 		var p := o
 		var dir := Vector2.from_angle(rng.randf() * TAU)
@@ -132,9 +134,9 @@ func _draw_cracks(o: Vector2, rng: RandomNumberGenerator) -> void:
 
 
 func _draw_rubble(rng: RandomNumberGenerator) -> void:
-	var spread := maxf(size.x, size.y) * 0.6 if kind == &"crate" else radius * 1.2
+	var spread := maxf(size.x, size.y) * 0.6 if kind in [&"crate", &"ice"] else radius * 1.2
 	var color: Color = {&"crate": Color(0.5, 0.33, 0.1), &"barrel": Color(0.45, 0.1, 0.07),
-		&"pylon": Color(0.25, 0.22, 0.2), &"rock": Color(0.12, 0.1, 0.095)}[kind]
+		&"pylon": Color(0.25, 0.22, 0.2), &"rock": Color(0.12, 0.1, 0.095), &"ice": Color(0.75, 0.9, 1.0)}[kind]
 	draw_circle(Vector2.ZERO, spread * 0.8, Color(0, 0, 0, 0.3))
 	for i in 9:
 		var p := Vector2.from_angle(rng.randf() * TAU) * rng.randf_range(0, spread)
@@ -191,3 +193,14 @@ func _draw_rock(p: Vector2, rng: RandomNumberGenerator) -> void:
 	pts.append(pts[0])
 	draw_polyline(pts, Color(1, 0.35, 0.05, 0.6), 2.5, true)
 	draw_circle(p - Vector2(radius * 0.25, radius * 0.25), radius * 0.35, Color(1, 0.9, 0.8, 0.05))
+
+
+func _draw_ice(r: Rect2) -> void:
+	draw_rect(Rect2(r.position + Vector2(6, 8), r.size), Color(0.1, 0.2, 0.35, 0.35))
+	draw_rect(r, Color(0.55, 0.78, 0.95, 0.85))
+	var top := r.grow(-5)
+	draw_rect(top, Color(0.78, 0.92, 1.0, 0.9))
+	draw_colored_polygon(PackedVector2Array([top.position, top.position + Vector2(top.size.x * 0.55, 0),
+		top.position + Vector2(0, top.size.y * 0.55)]), Color(1, 1, 1, 0.45))
+	draw_rect(r, Color(0.35, 0.6, 0.85, 0.9), false, 2.0)
+	draw_line(top.position + Vector2(8, top.size.y - 10), top.position + Vector2(top.size.x - 12, 10), Color(1, 1, 1, 0.5), 2.0)

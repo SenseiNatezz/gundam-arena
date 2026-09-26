@@ -1,0 +1,33 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scenes/bullet.gd" id="1"]
+[ext_resource type="Texture2D" path="res://assets/fx/glow.tres" id="2"]
+[ext_resource type="Script" path="res://scenes/fx/ice_shard_visual.gd" id="3"]
+
+[sub_resource type="CanvasItemMaterial" id="add"]
+blend_mode = 1
+
+[sub_resource type="CircleShape2D" id="shape"]
+radius = 10.0
+
+[node name="EnemyIceShard" type="Area2D"]
+collision_layer = 16
+collision_mask = 66
+monitorable = false
+script = ExtResource("1")
+player_owned = false
+lifetime = 5.0
+spark_color = Color(0.6, 0.9, 1, 1)
+chill = 1.6
+
+[node name="Glow" type="Sprite2D" parent="."]
+modulate = Color(0.35, 0.8, 1, 0.6)
+material = SubResource("add")
+scale = Vector2(0.55, 0.85)
+texture = ExtResource("2")
+
+[node name="Shard" type="Node2D" parent="."]
+script = ExtResource("3")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("shape")

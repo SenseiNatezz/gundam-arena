@@ -198,6 +198,27 @@ func _run() -> void:
 	tap_saber.pressed = false
 	vp.push_input(tap_saber, true)
 
+	# Ice damage: a freezing hit locks the mech in place; dashing breaks free early.
+	player.dash_cooldown_left = 0.0
+	player._invuln = 0.0
+	var hp_before_ice := player.hp
+	var god_was: bool = GameState.debug.god
+	GameState.debug.god = false
+	player.take_damage(5.0, player.global_position + Vector2(0, -50), false, 1.5, 1.0)
+	GameState.debug.god = god_was
+	_check("ice hit freezes the mech", player._freeze_time > 0.0 and player.ice_shell.visible and player.hp < hp_before_ice,
+		"freeze=%.2f" % player._freeze_time)
+	var frozen_at := player.global_position
+	GameState.touch_move = Vector2(1, 0)
+	await _frames(10)
+	_check("frozen mech cannot move", player.global_position.distance_to(frozen_at) < 20.0,
+		"moved %.0f" % player.global_position.distance_to(frozen_at))
+	GameState.dash_requested = true
+	await _frames(3)
+	GameState.touch_move = Vector2.ZERO
+	_check("dash breaks the ice", player._freeze_time <= 0.0 and not player.ice_shell.visible)
+	await _frames(80)  # let the chill wear off
+
 	# Destructible cover: enemy shots are stopped by a big crate and break it within 5 hits.
 	var crate: Cover = null
 	for cov: Cover in get_tree().get_nodes_in_group("cover"):

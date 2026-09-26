@@ -20,9 +20,15 @@ const ENEMY_SCENES := {
 	&"leviathan": preload("res://scenes/enemies/leviathan.tscn"),
 	&"heat_drone": preload("res://scenes/enemies/heat_drone.tscn"),
 	&"forge_mech": preload("res://scenes/enemies/forge_mech.tscn"),
+	&"frost_drone": preload("res://scenes/enemies/frost_drone.tscn"),
+	&"snow_walker": preload("res://scenes/enemies/snow_walker.tscn"),
+	&"cryo_titan": preload("res://scenes/enemies/cryo_titan.tscn"),
 }
-const BOSS_TYPES := [&"boss", &"leviathan", &"forge_mech"]
+const BOSS_TYPES := [&"boss", &"leviathan", &"forge_mech", &"cryo_titan"]
 const ENEMY_FIREBALL := preload("res://scenes/enemy_fireball.tscn")
+const ENEMY_SNOWBALL := preload("res://scenes/enemy_snowball.tscn")
+const ENEMY_ICE_SHARD := preload("res://scenes/enemy_ice_shard.tscn")
+const SNOW_BURST := preload("res://scenes/fx/snow_burst.gd")
 const ERUPTION := preload("res://scenes/hazards/eruption_tile.gd")
 
 ## Per level: a list of waves. Each wave is a list of groups; a group spawns `count` enemies of
@@ -32,7 +38,35 @@ const STAGE_WAVES := {
 	1: STAGE_1_WAVES,
 	2: STAGE_2_WAVES,
 	3: STAGE_3_WAVES,
+	4: STAGE_4_WAVES,
 }
+## Level 4 (Cryo Reactor): frost drones (snowball spreads) and snow walkers (lobbed snowballs),
+## then the Cryo Titan.
+const STAGE_4_WAVES := [
+	[
+		{"type": &"frost_drone", "count": 6, "formation": &"line", "delay": 0.0},
+		{"type": &"frost_drone", "count": 4, "formation": &"vee", "delay": 5.0},
+	],
+	[
+		{"type": &"frost_drone", "count": 6, "formation": &"swarm", "delay": 0.0},
+		{"type": &"snow_walker", "count": 2, "formation": &"row", "delay": 4.0},
+		{"type": &"frost_drone", "count": 4, "formation": &"vee", "delay": 5.0},
+	],
+	[
+		{"type": &"snow_walker", "count": 2, "formation": &"row", "delay": 0.0},
+		{"type": &"frost_drone", "count": 8, "formation": &"swarm", "delay": 3.0},
+		{"type": &"wasp", "count": 4, "formation": &"row", "delay": 5.0},
+	],
+	[
+		{"type": &"frost_drone", "count": 8, "formation": &"line", "delay": 0.0},
+		{"type": &"snow_walker", "count": 3, "formation": &"row", "delay": 4.0},
+		{"type": &"mine", "count": 6, "formation": &"sides", "delay": 5.0},
+		{"type": &"frost_drone", "count": 6, "formation": &"vee", "delay": 5.0},
+	],
+	[
+		{"type": &"cryo_titan", "count": 1, "formation": &"center", "delay": 0.0},
+	],
+]
 const STAGE_3_WAVES := [
 	[
 		{"type": &"heat_drone", "count": 6, "formation": &"line", "delay": 0.0},
@@ -157,12 +191,15 @@ func _ready() -> void:
 	GameState.snapshot_stage()
 	GameState.world = self
 	$Arena.setup(GameState.stage)
+	player.bounds = $Arena.play_rect()
 	_add_material.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
 	_pools[&"player"] = _make_pool(PLAYER_BULLET, 160)
 	_pools[&"enemy"] = _make_pool(ENEMY_BULLET, 220)
 	_pools[&"missile"] = _make_pool(MISSILE, 24)
 	_pools[&"enemy_missile"] = _make_pool(ENEMY_MISSILE, 24)
 	_pools[&"enemy_fireball"] = _make_pool(ENEMY_FIREBALL, 60)
+	_pools[&"enemy_snowball"] = _make_pool(ENEMY_SNOWBALL, 60)
+	_pools[&"enemy_ice_shard"] = _make_pool(ENEMY_ICE_SHARD, 60)
 	if GameState.stage == 3:
 		var warm_light := CanvasModulate.new()  # warm orange lighting over the world (not the HUD)
 		warm_light.color = Color(1.0, 0.87, 0.76)
@@ -403,10 +440,39 @@ func fire_enemy_fireball(pos: Vector2, vel: Vector2, damage: float) -> void:
 	_take(_pools[&"enemy_fireball"]).launch(pos, vel, damage)
 
 
+func fire_enemy_snowball(pos: Vector2, vel: Vector2, damage: float) -> void:
+	_take(_pools[&"enemy_snowball"]).launch(pos, vel, damage)
+
+
+func fire_enemy_ice_shard(pos: Vector2, vel: Vector2, damage: float) -> void:
+	_take(_pools[&"enemy_ice_shard"]).launch(pos, vel, damage)
+
+
+func spawn_snow_burst(pos: Vector2, size := 1.0) -> void:
+	var burst := Node2D.new()
+	burst.set_script(SNOW_BURST)
+	burst.position = pos
+	burst.set("size", size)
+	fx.add_child(burst)
+
+
+## Snow / ice area hit (lobbed snowballs, icicles): chills or freezes the player inside `radius`
+## and chips any cover it lands on.
+func frost_blast(pos: Vector2, radius: float, damage: float, chill: float, freeze := 0.0, size := 1.0) -> void:
+	spawn_snow_burst(pos, size)
+	shake(0.15 * size)
+	Sfx.play(&"snow_hit", -4.0, 0.15)
+	if not player.dead and player.global_position.distance_to(pos) < radius + 20.0:
+		player.take_damage(damage, pos, false, chill, freeze)
+	for cover: Cover in get_tree().get_nodes_in_group("cover"):
+		if not cover.broken and cover.global_position.distance_to(pos) < radius + 30.0:
+			cover.take_hit(2, cover.global_position)
+
+
 ## Every pooled enemy projectile (bullets, missiles, fireballs) - active or not.
 func enemy_projectiles() -> Array:
 	var out: Array = []
-	for key in [&"enemy", &"enemy_missile", &"enemy_fireball"]:
+	for key in [&"enemy", &"enemy_missile", &"enemy_fireball", &"enemy_snowball", &"enemy_ice_shard"]:
 		out.append_array(_pools[key].items)
 	return out
 
@@ -492,7 +558,7 @@ func _warm_up() -> void:
 	warm.modulate.a = 0.02
 	fx.add_child(warm)
 	warm.add_child(EXPLOSION.instantiate())
-	for scene: PackedScene in [PLAYER_BULLET, ENEMY_BULLET, MISSILE, ENEMY_MISSILE, ENEMY_FIREBALL]:
+	for scene: PackedScene in [PLAYER_BULLET, ENEMY_BULLET, MISSILE, ENEMY_MISSILE, ENEMY_FIREBALL, ENEMY_SNOWBALL, ENEMY_ICE_SHARD]:
 		var b: Bullet = scene.instantiate()
 		b.monitoring = false
 		warm.add_child(b)
@@ -674,6 +740,11 @@ func _parse_debug_args() -> void:
 			for u in GameState.upgrades:
 				if u.id == StringName(id):
 					GameState.apply_upgrade(u)
+	if _debug_args.has("freeze-at"):
+		get_tree().create_timer(float(_debug_args["freeze-at"])).timeout.connect(func() -> void:
+			GameState.debug.god = false
+			player._invuln = 0.0
+			player.take_damage(1.0, player.global_position + Vector2(0, -60), false, 2.0, 3.0))
 	if _debug_args.has("preview-zoom"):
 		_preview_zoom = float(_debug_args["preview-zoom"])
 	if _debug_args.has("demo-ring"):

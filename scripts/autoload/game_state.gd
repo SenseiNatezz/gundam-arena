@@ -15,8 +15,9 @@ const STAGES := {
 	1: {"sector": "A-1", "title": "HANGAR A-1", "boss": "ARACHNE-CLASS MOBILE ARMOR"},
 	2: {"sector": "B-7", "title": "REACTOR DECK B-7", "boss": "LEVIATHAN-CLASS BATTLESHIP"},
 	3: {"sector": "VF", "title": "VOLCANIC FORGE", "boss": "MAGMA FORGE MECH"},
+	4: {"sector": "CR", "title": "CRYO REACTOR", "boss": "CRYO TITAN"},
 }
-const FINAL_STAGE := 3
+const FINAL_STAGE := 4
 const BASE_STATS := {
 	"max_hp": 120.0,
 	"move_speed": 380.0,

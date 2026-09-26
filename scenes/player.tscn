@@ -5,6 +5,7 @@
 [ext_resource type="Shader" path="res://shaders/hit_flash.gdshader" id="3"]
 [ext_resource type="Texture2D" path="res://assets/fx/glow.tres" id="4"]
 [ext_resource type="Script" path="res://scenes/shield_ring.gd" id="5"]
+[ext_resource type="Script" path="res://scenes/ice_shell.gd" id="6"]
 
 [sub_resource type="ShaderMaterial" id="flash_mat"]
 shader = ExtResource("3")
@@ -109,3 +110,6 @@ shape = SubResource("hurt_shape")
 
 [node name="ShieldRing" type="Node2D" parent="."]
 script = ExtResource("5")
+
+[node name="IceShell" type="Node2D" parent="."]
+script = ExtResource("6")

@@ -15,6 +15,9 @@ const BARRELS := [Vector2(636, 940), Vector2(600, 972), Vector2(92, 510), Vector
 ## Level 2 (reactor deck): round reactor pylons instead of crates.
 const PYLONS := [Vector2(150, 430), Vector2(575, 700), Vector2(120, 880), Vector2(600, 330)]
 const PYLON_RADIUS := 36.0
+## Level 4 (cryo reactor): destructible ice blocks in the open floor.
+const ICE_BLOCKS := [Vector2(210, 470), Vector2(510, 470), Vector2(210, 850), Vector2(510, 850)]
+const CRYO_BACKGROUND := preload("res://assets/backgrounds/cryo_reactor.webp")
 ## Level 3 (volcanic forge): rocks hug the side walls only, leaving the middle open. [position, radius]
 const FORGE_ROCKS := [
 	[Vector2(78, 300), 30.0], [Vector2(70, 640), 26.0], [Vector2(84, 1010), 32.0],
@@ -43,6 +46,8 @@ func setup(stage: int) -> void:
 	_spawn_cover()
 	if stage == 3:
 		_setup_forge()
+	if stage == 4:
+		_setup_snow()
 	queue_redraw()
 
 
@@ -67,6 +72,9 @@ func _build_colliders() -> void:
 	var rects: Array[Rect2] = [
 		Rect2(0, 0, WALL, H), Rect2(W - WALL, 0, WALL, H), Rect2(0, 0, W, GATE + 30.0), Rect2(0, H - 30.0, W, 30.0),
 	]
+	if _stage == 4:
+		# The cryo art has pipes and machinery down both sides and reactors top and bottom.
+		rects = [Rect2(0, 0, 100, H), Rect2(W - 100, 0, 100, H), Rect2(0, 0, W, 170), Rect2(0, 1100, W, H - 1100)]
 	for r in rects:
 		var shape := CollisionShape2D.new()
 		var rect_shape := RectangleShape2D.new()
@@ -91,6 +99,9 @@ func _spawn_cover() -> void:
 	elif _stage == 3:
 		for rock in FORGE_ROCKS:
 			specs.append({"kind": &"rock", "pos": rock[0], "radius": rock[1], "hits": 7})
+	elif _stage == 4:
+		for p: Vector2 in ICE_BLOCKS:
+			specs.append({"kind": &"ice", "pos": p, "size": Vector2(60, 60), "hits": 6})
 	for spec in specs:
 		var cover := Cover.new()
 		cover.kind = spec.kind
@@ -107,6 +118,10 @@ func _draw() -> void:
 		return
 	if _stage == 3:
 		_draw_forge()
+		return
+	if _stage == 4:
+		# Painted level art, scaled to the arena (941x1672 -> 720x1280, same aspect).
+		draw_texture_rect(CRYO_BACKGROUND, Rect2(0, 0, W, H), false)
 		return
 	_rng.seed = 1337
 	draw_rect(Rect2(0, 0, W, H), Color(0.075, 0.085, 0.105))
@@ -476,3 +491,43 @@ func _draw_crucible(p: Vector2) -> void:
 	draw_circle(p, 23, Color(0.18, 0.15, 0.14))
 	draw_circle(p, 16, Color(1, 0.4, 0.05))
 	draw_circle(p - Vector2(3, 3), 8, Color(1, 0.85, 0.4))
+
+
+## Area the player's mech may move in (its centre), per level.
+func play_rect() -> Rect2:
+	if _stage == 4:
+		return Rect2(135, 210, 450, 850)
+	return Rect2(78, 200, 564, 1030)
+
+
+# --- level 4: cryo reactor -------------------------------------------------------------------
+
+## Falling snow in two depth layers: small slow far flakes and bigger, faster near flakes.
+func _setup_snow() -> void:
+	for layer in [
+		{"amount": 230, "speed": Vector2(45, 95), "scale": Vector2(0.18, 0.3), "alpha": 0.85, "z": 6},
+		{"amount": 70, "speed": Vector2(120, 190), "scale": Vector2(0.38, 0.55), "alpha": 1.0, "z": 8},
+	]:
+		var snow := GPUParticles2D.new()
+		var mat := ParticleProcessMaterial.new()
+		mat.particle_flag_disable_z = true
+		mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+		mat.emission_box_extents = Vector3(420, 10, 0)
+		mat.direction = Vector3(0.18, 1, 0)  # a light cross-wind
+		mat.spread = 12.0
+		mat.initial_velocity_min = layer.speed.x
+		mat.initial_velocity_max = layer.speed.y
+		mat.gravity = Vector3(6, 10, 0)
+		mat.scale_min = layer.scale.x
+		mat.scale_max = layer.scale.y
+		mat.color = Color(1, 1, 1, layer.alpha)
+		snow.process_material = mat
+		snow.texture = load("res://assets/fx/snowflake.tres")
+		snow.amount = layer.amount
+		snow.lifetime = 16.0
+		snow.preprocess = 16.0
+		snow.position = Vector2(320, -30)
+		snow.visibility_rect = Rect2(-500, -100, 1100, 1500)
+		snow.z_as_relative = false
+		snow.z_index = layer.z
+		add_child(snow)

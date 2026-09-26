@@ -14,6 +14,9 @@ const LIVE_AREA := Rect2(-100, -250, 920, 1650)
 @export var heat := false
 ## Player rockets: size of the small explosion on impact (0 = just a hit spark).
 @export var impact_explosion := 0.0
+## Enemy snow / ice shots: seconds of chill (slow) and freeze they inflict.
+@export var chill := 0.0
+@export var freeze := 0.0
 
 var active := false
 var velocity := Vector2.ZERO
@@ -90,6 +93,6 @@ func _on_area_entered(area: Area2D) -> void:
 		area.take_hit(1, global_position)
 		deactivate()
 	elif area.get_parent() is Player:
-		area.get_parent().take_damage(damage, global_position - velocity.normalized() * 40.0, heat)
+		area.get_parent().take_damage(damage, global_position - velocity.normalized() * 40.0, heat, chill, freeze)
 		GameState.world.spawn_hit_spark(global_position, spark_color)
 		deactivate()

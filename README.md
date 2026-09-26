@@ -1,6 +1,6 @@
 # Gundam Arena
 
-Top-down mobile-style mech shooter made in Godot 4.7. Pilot a Gundam through three levels of 5 waves
+Top-down mobile-style mech shooter made in Godot 4.7. Pilot a Gundam through four levels of 5 waves
 each, pick upgrades as you level up (they carry over between levels), and take down the boss at the end
 of each level:
 
@@ -12,8 +12,12 @@ of each level:
 - **Level 3 – Volcanic Forge:** a basalt floor split by glowing lava cracks, where random floor tiles
   glow and then erupt. Heat drones lob slow fireballs, and the **Magma Forge Mech** rises from the lava
   to leap onto you with a flame slam inside a red warning circle.
+- **Level 4 – Cryo Reactor:** a frozen facility with falling snow and breakable ice blocks. Frost drones
+  fire snowball spreads and snow walkers lob snowballs; snow hits **chill** you (slow). The **Cryo Titan**
+  fires ice-shard fans, erupts rows of ice spikes that **freeze** you (dash to break free) and calls
+  down a hailstorm of icicles.
 
-**Cover:** crates, red barrels, reactor pylons and forge rocks block enemy fire (your own shots fly over
+**Cover:** crates, red barrels, reactor pylons, forge rocks and ice blocks block enemy fire (your own shots fly over
 them) but break after a few hits. Red barrels explode when destroyed, damaging nearby enemies.
 
 ## Play
@@ -63,6 +67,7 @@ Exports: *Project → Export* has **Web** (single-threaded, works on GitHub Page
 | `scenes/enemies/` | `enemy.gd` base class, all enemy types and the three bosses (+ their telegraph drawing) |
 | `scenes/abilities/` | Beam Rifle and Beam Saber effects (hit logic + drawing) |
 | `scenes/cover.gd` | Destructible cover (crates, barrels, pylons, rocks) |
+| `scenes/ice_shell.gd` | Ice block drawn around the mech while frozen |
 | `scenes/hazards/` | Volcanic Forge eruption tiles |
 | `scenes/bullet.gd` | Pooled projectile used by player bolts, missiles and enemy shots / fireballs |
 | `scenes/arena.gd` | Procedurally painted floors for all three levels, walls and cover placement |
@@ -85,6 +90,7 @@ blender -b "path/to/Gundam_2D_Sprites.blend" --python tools/render_gundam.py
 blender -b --factory-startup --python tools/render_enemies.py
 blender -b --factory-startup --python tools/render_stage2.py
 blender -b --factory-startup --python tools/render_stage3.py
+blender -b --factory-startup --python tools/render_stage4.py
 blender -b "path/to/Gundam_Sword_2D_Sprites.blend" --python tools/render_gundam_sword.py
 ```
 
@@ -99,7 +105,7 @@ their scene setup and helpers through `tools/enemy_kit.py`.
 
 Pass after `--`: `--god`, `--autopilot` (dodging bot, auto-picks upgrades and advances levels),
 `--stage=N`, `--wave=N`, `--level=N`, `--hp=N`, `--boss-hp=0.5`, `--damage-cover`, `--beam-at=S`, `--saber-at=S`, `--demo-ring`,
-`--upgrades=homing,homing`, `--preview-zoom=1.6`,
+`--upgrades=homing,homing`, `--preview-zoom=1.6`, `--freeze-at=S`,
 `--upgrade-menu`, `--pause-menu`, `--shot=path.png --shot-time=S` (screenshot then quit).
 
 Input smoke test: `Godot..._console.exe --headless --path . -- --smoke-test --god`
