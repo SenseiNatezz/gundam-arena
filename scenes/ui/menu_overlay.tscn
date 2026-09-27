@@ -60,3 +60,11 @@ custom_minimum_size = Vector2(0, 76)
 layout_mode = 2
 focus_mode = 0
 text = "RESTART"
+
+[node name="Tertiary" type="Button" parent="Center/Panel/VBox"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(0, 76)
+layout_mode = 2
+focus_mode = 0
+text = "MAIN MENU"

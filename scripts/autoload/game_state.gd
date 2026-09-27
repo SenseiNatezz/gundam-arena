@@ -314,3 +314,27 @@ func apply_paint(mat: ShaderMaterial) -> void:
 
 func energy_colors() -> Dictionary:
 	return ENERGIES[energy]
+
+
+# --- level select ------------------------------------------------------------------------------
+
+## Pilot level you'd typically have when reaching each level (from full playthroughs).
+const LEVEL_SELECT_PILOT := {1: 1, 2: 11, 3: 16, 4: 19}
+
+
+## Sets up a run that starts at `stage` with a typical build for that point: the matching pilot
+## level and one upgrade per level-up (picked the same way the level-up menu offers them).
+## Arms carry_over so the next Main scene starts there.
+func start_level_select(to_stage: int) -> void:
+	reset()
+	stage = clampi(to_stage, 1, FINAL_STAGE)
+	var target: int = LEVEL_SELECT_PILOT.get(stage, 1)
+	for i in target - 1:
+		level = i + 2  # so level-gated upgrades unlock as they would in play
+		var roll := roll_upgrades(3)
+		if not roll.is_empty():
+			apply_upgrade(roll[randi() % roll.size()])
+	level = target
+	xp = 0
+	xp_needed = _xp_for(level)
+	carry_over = true

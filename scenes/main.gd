@@ -217,6 +217,7 @@ func _ready() -> void:
 	hud.pause_pressed.connect(_toggle_pause)
 	pause_menu.primary_pressed.connect(_toggle_pause)
 	pause_menu.secondary_pressed.connect(_retry_level)
+	pause_menu.tertiary_pressed.connect(_to_title)
 	end_screen.primary_pressed.connect(_on_end_primary)
 	end_screen.secondary_pressed.connect(_to_title)
 	var info := GameState.stage_info()
@@ -632,7 +633,7 @@ func _toggle_pause() -> void:
 	else:
 		get_tree().paused = true
 		pause_menu.open("PAUSED", "Wave %d/%d  ·  Level %d" % [GameState.wave, GameState.TOTAL_WAVES, GameState.level],
-			Color(0.7, 0.88, 1.0), "RESUME", "RESTART")
+			Color(0.7, 0.88, 1.0), "RESUME", "RESTART", "MAIN MENU")
 
 
 func _on_player_died() -> void:
@@ -745,6 +746,10 @@ func _parse_debug_args() -> void:
 		get_tree().create_timer(float(_debug_args.get("upgrade-menu-time", "1.5"))).timeout.connect(func() -> void:
 			GameState.pending_levels += 1
 			_open_upgrade_menu())
+	if _debug_args.has("pause-exit"):  # test hook: open pause, then press MAIN MENU
+		get_tree().create_timer(1.0).timeout.connect(func() -> void:
+			_toggle_pause()
+			get_tree().create_timer(0.5, true).timeout.connect(func() -> void: pause_menu.tertiary.pressed.emit()))
 	if _debug_args.has("pause-menu"):
 		get_tree().create_timer(1.0).timeout.connect(_toggle_pause)
 	if _debug_args.has("beam-at"):

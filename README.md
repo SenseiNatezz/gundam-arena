@@ -31,6 +31,10 @@ The game opens on an animated main menu video (`assets/title/menu_video.ogv`) wi
   and energy color (thrusters, rifle bolts, muzzle flash), with a live animated preview. Saved.
 - **Settings** – sound volume and screen shake. Saved.
 - **Exit** – quits the Windows version.
+- **Level Select** – jump into any of the four levels, starting with the pilot level and upgrades you'd
+  normally have by then.
+
+The pause menu's **MAIN MENU** button returns here at any time.
 
 ## Play
 
@@ -124,7 +128,7 @@ Pass after `--`: `--god`, `--autopilot` (dodging bot, auto-picks upgrades and ad
 `--upgrade-menu`, `--pause-menu`, `--shot=path.png --shot-time=S` (screenshot then quit).
 
 The main menu is skipped when debug flags are given; add `--title` to see it (plus `--title-customize`,
-`--title-settings`, `--title-hover=settings`, `--title-start`). `--paint=crimson --energy=pink` preview a
+`--title-settings`, `--title-levels`, `--title-pick=N`, `--title-hover=settings`, `--title-start`). `--paint=crimson --energy=pink` preview a
 look without saving it.
 
 Input smoke test: `Godot..._console.exe --headless --path . -- --smoke-test --god`
