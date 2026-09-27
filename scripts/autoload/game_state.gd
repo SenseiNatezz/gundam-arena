@@ -87,6 +87,8 @@ func _ready() -> void:
 			paint = StringName(arg.get_slice("=", 1))
 		if arg.begins_with("--energy=") and ENERGIES.has(StringName(arg.get_slice("=", 1))):
 			energy = StringName(arg.get_slice("=", 1))
+		if arg.begins_with("--difficulty=") and DIFFICULTIES.has(StringName(arg.get_slice("=", 1))):
+			difficulty = StringName(arg.get_slice("=", 1))
 
 
 func _process(delta: float) -> void:
@@ -141,8 +143,12 @@ func restore_stage_snapshot() -> void:
 	run_time = _stage_snapshot.run_time
 
 
+## XP needed to go from pilot level `lv` to the next. From LV 4 on it climbs much faster.
 func _xp_for(lv: int) -> int:
-	return 4 + (lv - 1) * 3
+	var need := 4 + (lv - 1) * 3
+	if lv >= 4:
+		need += (lv - 3) * 5
+	return need
 
 
 func add_xp(amount: int) -> void:
@@ -215,6 +221,7 @@ func has_save() -> bool:
 func save_progress() -> void:
 	var data := _stage_snapshot.duplicate()
 	data["stage"] = stage
+	data["difficulty"] = String(difficulty)
 	var f := FileAccess.open(save_path, FileAccess.WRITE)
 	if f:
 		f.store_string(JSON.stringify(data))
@@ -241,6 +248,8 @@ func load_progress() -> bool:
 	for key in data.get("stacks", {}):
 		stacks[StringName(key)] = int(data.stacks[key])
 	stage = clampi(int(data.stage), 1, FINAL_STAGE)
+	var saved_diff := StringName(data.get("difficulty", "normal"))
+	difficulty = saved_diff if DIFFICULTIES.has(saved_diff) else &"normal"
 	level = int(data.get("level", 1))
 	xp = int(data.get("xp", 0))
 	xp_needed = int(data.get("xp_needed", _xp_for(level)))
@@ -283,6 +292,8 @@ func load_settings() -> void:
 		paint = p if PAINTS.has(p) else &"classic"
 		energy = e if ENERGIES.has(e) else &"cyan"
 		volume = clampf(float(cfg.get_value("settings", "volume", 1.0)), 0.0, 1.0)
+		var d := StringName(cfg.get_value("settings", "difficulty", "normal"))
+		difficulty = d if DIFFICULTIES.has(d) else &"normal"
 		screen_shake = bool(cfg.get_value("settings", "screen_shake", true))
 	apply_volume()
 
@@ -293,6 +304,7 @@ func save_settings() -> void:
 	cfg.set_value("custom", "energy", String(energy))
 	cfg.set_value("settings", "volume", volume)
 	cfg.set_value("settings", "screen_shake", screen_shake)
+	cfg.set_value("settings", "difficulty", String(difficulty))
 	cfg.save(SETTINGS_PATH)
 
 
@@ -319,7 +331,7 @@ func energy_colors() -> Dictionary:
 # --- level select ------------------------------------------------------------------------------
 
 ## Pilot level you'd typically have when reaching each level (from full playthroughs).
-const LEVEL_SELECT_PILOT := {1: 1, 2: 11, 3: 16, 4: 19}
+const LEVEL_SELECT_PILOT := {1: 1, 2: 8, 3: 11, 4: 13}
 
 
 ## Sets up a run that starts at `stage` with a typical build for that point: the matching pilot
@@ -338,3 +350,25 @@ func start_level_select(to_stage: int) -> void:
 	xp = 0
 	xp_needed = _xp_for(level)
 	carry_over = true
+
+
+# --- difficulty ----------------------------------------------------------------------------------
+# Scales how many enemies each wave sends (bosses stay single), enemy health (bosses included,
+# on top of the per-level STAGE_ENEMY_HP) and the damage enemies deal to the pilot.
+
+const DIFFICULTIES := {
+	&"easy": {"name": "EASY", "color": Color(0.45, 1.0, 0.55), "count": 0.6, "hp": 0.6, "dmg": 0.5,
+		"desc": "Fewer, weaker enemies that hit softer. Great for learning the levels."},
+	&"normal": {"name": "NORMAL", "color": Color(0.45, 0.8, 1.0), "count": 1.0, "hp": 1.0, "dmg": 1.0,
+		"desc": "The standard challenge. Bosses are tough but fair."},
+	&"hard": {"name": "HARD", "color": Color(1.0, 0.65, 0.2), "count": 1.3, "hp": 1.3, "dmg": 1.3,
+		"desc": "30% more enemies with more armor, and they hit harder."},
+	&"extreme": {"name": "EXTREME", "color": Color(1.0, 0.25, 0.25), "count": 1.6, "hp": 1.7, "dmg": 1.6,
+		"desc": "Swarms of heavily armored enemies. Every hit hurts. Good luck, pilot."},
+}
+
+var difficulty := &"normal"
+
+
+func diff() -> Dictionary:
+	return DIFFICULTIES[difficulty]

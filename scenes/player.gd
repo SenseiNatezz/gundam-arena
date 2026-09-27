@@ -310,6 +310,7 @@ func take_damage(amount: float, from_pos: Vector2, heat := false, chill := 0.0, 
 	if dead or _invuln > 0.0 or _dash_time_left > 0.0 or GameState.debug.god:
 		return
 	_knockback = (global_position - from_pos).normalized() * 520.0
+	amount *= GameState.diff().dmg  # difficulty: enemies hit softer / harder
 	if heat:
 		amount *= 1.0 - minf(GameState.stats.heat_resist, 0.8)
 	if shield_charges > 0:

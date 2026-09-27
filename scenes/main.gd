@@ -25,6 +25,8 @@ const ENEMY_SCENES := {
 	&"cryo_titan": preload("res://scenes/enemies/cryo_titan.tscn"),
 }
 const BOSS_TYPES := [&"boss", &"leviathan", &"forge_mech", &"cryo_titan"]
+## Enemy toughness per level: every enemy (bosses included) gets this much more health.
+const STAGE_ENEMY_HP := {1: 1.0, 2: 1.35, 3: 1.7, 4: 2.0}
 const ENEMY_FIREBALL := preload("res://scenes/enemy_fireball.tscn")
 const ENEMY_SNOWBALL := preload("res://scenes/enemy_snowball.tscn")
 const ENEMY_ICE_SHARD := preload("res://scenes/enemy_ice_shard.tscn")
@@ -221,7 +223,7 @@ func _ready() -> void:
 	end_screen.primary_pressed.connect(_on_end_primary)
 	end_screen.secondary_pressed.connect(_to_title)
 	var info := GameState.stage_info()
-	hud.show_banner(info.title, "Level %d  ·  Clear %d waves" % [GameState.stage, GameState.TOTAL_WAVES], Color(0.6, 0.85, 1.0), 1.0)
+	hud.show_banner(info.title, "Level %d  ·  %s  ·  Clear %d waves" % [GameState.stage, GameState.diff().name, GameState.TOTAL_WAVES], Color(0.6, 0.85, 1.0), 1.0)
 	_warm_up()
 	_parse_debug_args()
 
@@ -299,6 +301,9 @@ func _start_wave(n: int) -> void:
 	GameState.wave = n
 	GameState.wave_changed.emit(n, GameState.TOTAL_WAVES)
 	_wave_queue = STAGE_WAVES[GameState.stage][n - 1].duplicate(true)
+	for group in _wave_queue:  # difficulty: more / fewer enemies per group (bosses stay single)
+		if not group.type in BOSS_TYPES:
+			group.count = maxi(1, roundi(group.count * GameState.diff().count))
 	var total := 0
 	for group in _wave_queue:
 		total += group.count
@@ -307,7 +312,7 @@ func _start_wave(n: int) -> void:
 	_group_timer = 1.4
 	_state = &"fighting"
 	if GameState.debug.autopilot:
-		print("WAVE %d  t=%.1f  hp=%d  level=%d  stacks=%s" % [n, GameState.run_time, player.hp, GameState.level, GameState.stacks])
+		print("WAVE %d  enemies=%d  t=%.1f  hp=%d  level=%d  stacks=%s" % [n, total, GameState.run_time, player.hp, GameState.level, GameState.stacks])
 	if n == GameState.TOTAL_WAVES:
 		hud.show_banner("WARNING", GameState.stage_info().boss.capitalize() + " approaching", Color(1.0, 0.25, 0.2), 1.6)
 		Sfx.play(&"alarm", -4.0, 0.0)
@@ -366,6 +371,7 @@ func _formation(kind: StringName, count: int) -> Array:
 
 func spawn_enemy(type: StringName, from: Vector2, to: Vector2, extra := false) -> Enemy:
 	var enemy: Enemy = ENEMY_SCENES[type].instantiate()
+	enemy.max_hp *= enemy_hp_mult()
 	enemy.position = from
 	enemy.enter_target = to
 	enemy.died.connect(_on_enemy_died)
@@ -386,6 +392,10 @@ func _on_enemy_died(enemy: Enemy) -> void:
 	if is_boss:
 		for other: Enemy in get_tree().get_nodes_in_group("enemies"):
 			other.kill()
+
+
+func enemy_hp_mult() -> float:
+	return STAGE_ENEMY_HP.get(GameState.stage, 1.0) * GameState.diff().hp
 
 
 func nearest_enemy(from: Vector2, max_dist := INF) -> Enemy:
@@ -632,7 +642,7 @@ func _toggle_pause() -> void:
 		get_tree().paused = false
 	else:
 		get_tree().paused = true
-		pause_menu.open("PAUSED", "Wave %d/%d  ·  Level %d" % [GameState.wave, GameState.TOTAL_WAVES, GameState.level],
+		pause_menu.open("PAUSED", "Wave %d/%d  ·  Level %d  ·  %s" % [GameState.wave, GameState.TOTAL_WAVES, GameState.level, GameState.diff().name],
 			Color(0.7, 0.88, 1.0), "RESUME", "RESTART", "MAIN MENU")
 
 
@@ -640,7 +650,11 @@ func _on_player_died() -> void:
 	if _state == &"won":
 		return
 	if GameState.debug.autopilot:
-		print("DIED  wave=%d  t=%.1f  level=%d" % [GameState.wave, GameState.run_time, GameState.level])
+		var boss_left := ""
+		for e: Enemy in get_tree().get_nodes_in_group("enemies"):
+			if e.max_hp >= 5000.0:
+				boss_left = "  boss_hp=%d%%" % roundi(100.0 * e.hp / e.max_hp)
+		print("DIED  stage=%d  wave=%d  t=%.1f  level=%d%s" % [GameState.stage, GameState.wave, GameState.run_time, GameState.level, boss_left])
 	_state = &"lost"
 	set_danger_tint(0.0)
 	get_tree().create_timer(1.6, false).timeout.connect(func() -> void:
@@ -669,8 +683,8 @@ func _show_victory() -> void:
 
 func _run_summary() -> String:
 	var secs := int(GameState.run_time)
-	return "Level %d  ·  Wave %d/%d\nKills %d  ·  Pilot LV %d\nTime %d:%02d" % [
-		GameState.stage, GameState.wave, GameState.TOTAL_WAVES, GameState.kills, GameState.level, secs / 60, secs % 60]
+	return "Level %d  ·  Wave %d/%d  ·  %s\nKills %d  ·  Pilot LV %d\nTime %d:%02d" % [
+		GameState.stage, GameState.wave, GameState.TOTAL_WAVES, GameState.diff().name, GameState.kills, GameState.level, secs / 60, secs % 60]
 
 
 func _on_end_primary() -> void:

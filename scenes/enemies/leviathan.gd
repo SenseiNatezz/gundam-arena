@@ -39,6 +39,7 @@ func _ready() -> void:
 	GameState.boss_changed.emit(hp, max_hp)
 	for mount in TURRET_MOUNTS:
 		var turret: Enemy = TURRET.instantiate()
+		turret.max_hp *= GameState.world.enemy_hp_mult()
 		turret.position = mount
 		turret.entering = false
 		add_child(turret)

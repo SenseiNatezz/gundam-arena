@@ -11,16 +11,18 @@ const MAIN := "res://scenes/main.tscn"
 const HERO_FRAMES := 12
 const HERO_FPS := 12.0
 const HERO_HOME := Vector2(268, 1078)
-## Painted button rectangles in the 720x1280 menu video.
+## Painted button rectangles (720x1280 menu video). menu_shift.gdshader moves the painted
+## Customization / Settings / Exit buttons down one slot each, so these hotspots follow them.
 const HOTSPOTS := {
 	&"new_game": Rect2(33, 329, 264, 48),
 	&"continue": Rect2(33, 389, 264, 48),
-	&"customize": Rect2(33, 447, 264, 49),
-	&"settings": Rect2(33, 506, 264, 48),
-	&"exit": Rect2(33, 564, 264, 48),
+	&"customize": Rect2(33, 506, 264, 49),
+	&"settings": Rect2(33, 564, 264, 48),
+	&"exit": Rect2(33, 623, 264, 48),
 }
-## Real (not painted) button added under Exit, styled to match the painted ones.
-const LEVEL_SELECT_RECT := Rect2(33, 624, 264, 48)
+## Real (not painted) button in the freed slot under Continue, styled to match the painted ones.
+## Slightly larger than the painted rect so it fully covers what the shader leaves there.
+const LEVEL_SELECT_RECT := Rect2(29, 444, 272, 55)
 const LEVEL_COLORS := {1: Color(0.55, 0.65, 0.8), 2: Color(1.0, 0.55, 0.2), 3: Color(1.0, 0.35, 0.1), 4: Color(0.45, 0.85, 1.0)}
 
 @onready var video: VideoStreamPlayer = $Video
@@ -43,6 +45,8 @@ const LEVEL_COLORS := {1: Color(0.55, 0.65, 0.8), 2: Color(1.0, 0.55, 0.2), 3: C
 @onready var shake_toggle: CheckButton = %Shake
 @onready var fade: ColorRect = %Fade
 var level_layer: Control
+var diff_layer: Control
+var _diff_row: HBoxContainer
 
 var _t := 0.0
 var _leaving := false
@@ -62,6 +66,7 @@ func _ready() -> void:
 		get_window().mouse_passthrough = true
 	_build_hotspots()
 	_build_level_select()
+	_build_difficulty_select()
 	_refresh_continue()
 	_build_swatches()
 	_apply_customization()
@@ -85,6 +90,8 @@ func _ready() -> void:
 		_open(settings_layer)
 	if args.has("--title-levels"):
 		_open(level_layer)
+	if args.has("--title-difficulty"):
+		_open(diff_layer)
 	for arg in args:  # test hook: --title-pick=4 picks a level from Level Select after the intro
 		if arg.begins_with("--title-pick="):
 			var pick := int(arg.get_slice("=", 1))
@@ -142,13 +149,11 @@ func _glow_box(fill: float, edge: float) -> StyleBoxFlat:
 
 
 func _on_hotspot(id: StringName) -> void:
-	if _leaving or customize_layer.visible or settings_layer.visible or level_layer.visible:
+	if _leaving or customize_layer.visible or settings_layer.visible or level_layer.visible or diff_layer.visible:
 		return
 	match id:
 		&"new_game":
-			GameState.carry_over = false
-			GameState.delete_save()
-			_start_game()
+			_open(diff_layer)  # pick a difficulty first
 		&"continue":
 			if _has_save and GameState.load_progress():
 				_start_game()
@@ -176,7 +181,9 @@ func _refresh_continue() -> void:
 		var data = JSON.parse_string(f.get_as_text()) if f else null
 		if data is Dictionary and data.has("stage"):
 			var stage := clampi(int(data.stage), 1, GameState.FINAL_STAGE)
-			continue_info.text = "Level %d · %s · Pilot LV %d" % [stage, GameState.STAGES[stage].title, int(data.get("level", 1))]
+			var d := StringName(data.get("difficulty", "normal"))
+			var dname: String = GameState.DIFFICULTIES[d].name if GameState.DIFFICULTIES.has(d) else "NORMAL"
+			continue_info.text = "Level %d · %s · Pilot LV %d · %s" % [stage, GameState.STAGES[stage].title, int(data.get("level", 1)), dname]
 
 
 func _show_toast(text: String) -> void:
@@ -208,6 +215,7 @@ func _close_overlays() -> void:
 	customize_layer.visible = false
 	settings_layer.visible = false
 	level_layer.visible = false
+	diff_layer.visible = false
 	hotspots.visible = true
 
 
@@ -311,7 +319,7 @@ func _build_level_select() -> void:
 	b.add_theme_color_override("font_hover_color", Color(1, 1, 1))
 	b.add_theme_color_override("font_pressed_color", Color(1, 1, 1))
 	var base := StyleBoxFlat.new()
-	base.bg_color = Color(0.02, 0.05, 0.12, 0.72)
+	base.bg_color = Color(0.03, 0.06, 0.13, 1.0)
 	base.border_color = Color(0.35, 0.65, 1.0, 0.75)
 	base.set_border_width_all(2)
 	_chamfer(base)
@@ -320,6 +328,7 @@ func _build_level_select() -> void:
 	for state in ["hover", "pressed"]:
 		var glow := _glow_box(0.12 if state == "hover" else 0.28, 1.0)
 		_chamfer(glow)
+		glow.bg_color = Color(0.06, 0.15, 0.28, 1.0) if state == "hover" else Color(0.1, 0.26, 0.44, 1.0)  # opaque: covers the slot
 		glow.content_margin_left = 40
 		b.add_theme_stylebox_override(state, glow)
 	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
@@ -364,6 +373,25 @@ func _build_level_select() -> void:
 	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(note)
+	# Difficulty for the chosen level.
+	_diff_row = HBoxContainer.new()
+	_diff_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_diff_row.add_theme_constant_override("separation", 10)
+	for id in GameState.DIFFICULTIES:
+		var db := Button.new()
+		db.text = GameState.DIFFICULTIES[id].name
+		db.custom_minimum_size = Vector2(136, 54)
+		db.focus_mode = Control.FOCUS_NONE
+		db.add_theme_font_size_override("font_size", 19)
+		db.set_meta("id", id)
+		db.pressed.connect(func() -> void:
+			GameState.difficulty = id
+			GameState.save_settings()
+			Sfx.play(&"select", -6.0, 0.0)
+			_refresh_diff_row())
+		_diff_row.add_child(db)
+	box.add_child(_diff_row)
+	_refresh_diff_row()
 	for stage in range(1, GameState.FINAL_STAGE + 1):
 		box.add_child(_level_card(stage))
 	var back := Button.new()
@@ -426,3 +454,104 @@ func _chamfer(sb: StyleBoxFlat) -> void:
 	sb.corner_radius_bottom_right = 10
 	sb.corner_radius_top_right = 2
 	sb.corner_radius_bottom_left = 2
+
+
+func _refresh_diff_row() -> void:
+	for db: Button in _diff_row.get_children():
+		var id: StringName = db.get_meta("id")
+		var color: Color = GameState.DIFFICULTIES[id].color
+		var selected := id == GameState.difficulty
+		for state in ["normal", "hover", "pressed"]:
+			var sb := StyleBoxFlat.new()
+			sb.bg_color = Color(color.darkened(0.55), 0.95) if selected else Color(0.04, 0.07, 0.14, 0.95)
+			sb.border_color = color if selected else Color(color, 0.45)
+			sb.set_border_width_all(3 if selected else 2)
+			sb.set_corner_radius_all(8)
+			if state == "hover" and not selected:
+				sb.bg_color = Color(color.darkened(0.75), 0.95)
+			db.add_theme_stylebox_override(state, sb)
+		db.add_theme_color_override("font_color", Color(1, 1, 1) if selected else color.lightened(0.2))
+		db.add_theme_color_override("font_hover_color", Color(1, 1, 1))
+
+
+# --- difficulty select (New Game) ----------------------------------------------------------------
+
+func _build_difficulty_select() -> void:
+	diff_layer = Control.new()
+	diff_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	diff_layer.visible = false
+	add_child(diff_layer)
+	move_child(diff_layer, fade.get_index())  # under the fade
+	var dim := ColorRect.new()
+	dim.color = Color(0.01, 0.02, 0.07, 0.75)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	diff_layer.add_child(dim)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(40, 190)
+	panel.size = Vector2(640, 0)
+	diff_layer.add_child(panel)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 14)
+	panel.add_child(box)
+	var header := Label.new()
+	header.text = "SELECT DIFFICULTY"
+	header.add_theme_font_size_override("font_size", 40)
+	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(header)
+	for id in GameState.DIFFICULTIES:
+		box.add_child(_difficulty_card(id))
+	var back := Button.new()
+	back.text = "BACK"
+	back.custom_minimum_size = Vector2(0, 70)
+	back.focus_mode = Control.FOCUS_NONE
+	back.pressed.connect(_close_overlays)
+	box.add_child(back)
+
+
+func _difficulty_card(id: StringName) -> Button:
+	var d: Dictionary = GameState.DIFFICULTIES[id]
+	var accent: Color = d.color
+	var card := Button.new()
+	card.custom_minimum_size = Vector2(0, 104)
+	card.focus_mode = Control.FOCUS_NONE
+	for state in ["normal", "hover", "pressed"]:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.03, 0.06, 0.13, 0.95) if state == "normal" else Color(accent.darkened(0.7), 0.95)
+		sb.border_color = Color(accent, 0.9 if state != "normal" else 0.55)
+		sb.set_border_width_all(2)
+		sb.border_width_left = 10
+		sb.set_corner_radius_all(10)
+		sb.shadow_color = Color(accent, 0.45) if state != "normal" else Color(0, 0, 0, 0)
+		sb.shadow_size = 10
+		card.add_theme_stylebox_override(state, sb)
+	var col := VBoxContainer.new()
+	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	col.offset_left = 28
+	col.offset_top = 8
+	col.offset_right = -16
+	col.offset_bottom = -8
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(col)
+	var title := Label.new()
+	title.text = d.name
+	title.add_theme_font_size_override("font_size", 28)
+	title.add_theme_color_override("font_color", accent.lightened(0.25))
+	col.add_child(title)
+	var desc := Label.new()
+	desc.text = d.desc
+	desc.add_theme_font_size_override("font_size", 16)
+	desc.add_theme_color_override("font_color", Color(0.8, 0.86, 0.96))
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	col.add_child(desc)
+	for l in [title, desc]:
+		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.pressed.connect(func() -> void:
+		if _leaving:
+			return
+		GameState.difficulty = id
+		GameState.save_settings()
+		GameState.carry_over = false
+		GameState.delete_save()
+		_start_game())
+	return card

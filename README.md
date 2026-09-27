@@ -24,17 +24,30 @@ them) but break after a few hits. Red barrels explode when destroyed, damaging n
 
 The game opens on an animated main menu video (`assets/title/menu_video.ogv`) with tappable buttons:
 
-- **New Game** – start from Level 1.
+- **New Game** – pick a difficulty, then start from Level 1.
 - **Continue** – the game saves at the start of every level; Continue resumes the last level you reached
-  with your upgrades and pilot level.
+  with your upgrades, pilot level and difficulty.
+- **Level Select** – jump into any of the four levels on any difficulty, starting with the pilot level
+  and upgrades you'd normally have by then.
 - **Gundam Customization** – armor paint (Classic Blue, Crimson, Forest Green, Stealth Black, Royal Gold)
   and energy color (thrusters, rifle bolts, muzzle flash), with a live animated preview. Saved.
 - **Settings** – sound volume and screen shake. Saved.
 - **Exit** – quits the Windows version.
-- **Level Select** – jump into any of the four levels, starting with the pilot level and upgrades you'd
-  normally have by then.
 
 The pause menu's **MAIN MENU** button returns here at any time.
+
+**Difficulty** scales how many enemies each wave sends, their health (bosses included) and the damage
+they deal to you:
+
+| | Enemies per wave | Enemy health | Damage to you |
+| --- | --- | --- | --- |
+| Easy | 60% | 60% | 50% |
+| Normal | 100% | 100% | 100% |
+| Hard | 130% | 130% | 130% |
+| Extreme | 160% | 170% | 160% |
+
+On top of that, enemies get tougher every level (×1.35 health in Level 2, ×1.7 in Level 3, ×2 in
+Level 4), and leveling up slows down after pilot LV 4.
 
 ## Play
 
@@ -98,6 +111,7 @@ Exports: *Project → Export* has **Web** (single-threaded, works on GitHub Page
 `min_level` / `min_stage` limit when it's offered; `featured` guarantees it a slot.
 
 **Tuning:** enemy HP/speed/damage are exported on each enemy scene; waves are in `Main.STAGE_WAVES`;
+per-level enemy health in `Main.STAGE_ENEMY_HP`; difficulty modes in `GameState.DIFFICULTIES`; XP curve in `GameState._xp_for`;
 player stats in `GameState.BASE_STATS`; cover hit counts in `Arena._spawn_cover()`.
 
 ### Re-rendering sprites
@@ -128,7 +142,7 @@ Pass after `--`: `--god`, `--autopilot` (dodging bot, auto-picks upgrades and ad
 `--upgrade-menu`, `--pause-menu`, `--shot=path.png --shot-time=S` (screenshot then quit).
 
 The main menu is skipped when debug flags are given; add `--title` to see it (plus `--title-customize`,
-`--title-settings`, `--title-levels`, `--title-pick=N`, `--title-hover=settings`, `--title-start`). `--paint=crimson --energy=pink` preview a
+`--title-settings`, `--title-levels`, `--title-difficulty`, `--title-pick=N`, `--difficulty=hard`, `--title-hover=settings`, `--title-start`). `--paint=crimson --energy=pink` preview a
 look without saving it.
 
 Input smoke test: `Godot..._console.exe --headless --path . -- --smoke-test --god`

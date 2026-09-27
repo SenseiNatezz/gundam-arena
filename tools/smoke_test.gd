@@ -201,13 +201,17 @@ func _run() -> void:
 	# Ice damage: a freezing hit locks the mech in place; dashing breaks free early.
 	player.dash_cooldown_left = 0.0
 	player._invuln = 0.0
+	player._dash_time_left = 0.0  # a dash in progress would (correctly) dodge the test hit
+	player.shield_charges = 0  # an I-Field Shield charge (random upgrade pick) would absorb it too
+	GameState.dash_requested = false
 	var hp_before_ice := player.hp
 	var god_was: bool = GameState.debug.god
 	GameState.debug.god = false
 	player.take_damage(5.0, player.global_position + Vector2(0, -50), false, 1.5, 1.0)
 	GameState.debug.god = god_was
 	_check("ice hit freezes the mech", player._freeze_time > 0.0 and player.ice_shell.visible and player.hp < hp_before_ice,
-		"freeze=%.2f" % player._freeze_time)
+		"freeze=%.2f hp %.0f->%.0f invuln=%.2f dash=%.2f shield=%d dead=%s god=%s slash=%.2f" % [player._freeze_time, hp_before_ice, player.hp,
+		player._invuln, player._dash_time_left, player.shield_charges, player.dead, GameState.debug.god, player._slash_time_left])
 	var frozen_at := player.global_position
 	GameState.touch_move = Vector2(1, 0)
 	await _frames(10)

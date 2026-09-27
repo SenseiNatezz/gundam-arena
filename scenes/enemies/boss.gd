@@ -20,6 +20,8 @@ var _laser_sound_played := false
 var _spray_left := 0
 var _spray_timer := 0.0
 var _circles: Array[Dictionary] = []
+## Below half HP the Arachne enrages: shorter breaks between attacks, more circles and bullets.
+var _enraged := false
 
 @onready var telegraph: Node2D = $Telegraph
 
@@ -41,6 +43,11 @@ func take_damage(amount: float, crit: bool, hit_dir: Vector2, knock := 170.0) ->
 func _behave(delta: float) -> void:
 	var p := _player()
 	_state_time -= delta
+	if not _enraged and hp <= max_hp * 0.5:
+		_enraged = true
+		GameState.world.hud.show_banner("ARACHNE ENRAGED", "Its attacks are speeding up", Color(1.0, 0.3, 0.2), 1.0)
+		GameState.world.shake(0.5)
+		Sfx.play(&"alarm", -6.0, 0.0)
 	telegraph.aura_pos = global_position
 	telegraph.aura_strength = lerpf(telegraph.aura_strength, 0.35 if _state == &"walk" else 1.0, 1.0 - exp(-4.0 * delta))
 
@@ -68,17 +75,17 @@ func _behave(delta: float) -> void:
 			if _spray_left > 0 and _spray_timer <= 0.0:
 				_spray_timer = 0.45
 				_spray_left -= 1
-				var count := 18
+				var count := 30 if _enraged else 24
 				var offset := randf() * TAU
 				for i in count:
 					var dir := Vector2.from_angle(offset + i * TAU / count)
-					GameState.world.fire_enemy_bullet(global_position + dir * 60.0, dir * 230.0, 10.0)
+					GameState.world.fire_enemy_bullet(global_position + dir * 60.0, dir * 250.0, 10.0)
 				Sfx.play(&"enemy_shoot", -6.0)
 			if _spray_left <= 0 and _spray_timer <= 0.0:
 				_end_attack(1.4)
 		&"summon":
 			if _state_time <= 0.0:
-				for i in 4:
+				for i in 6:
 					var from := global_position + Vector2(randf_range(-60, 60), 40)
 					var to := Vector2(randf_range(120, 600), randf_range(420, 620))
 					GameState.world.spawn_enemy(&"drone", from, to, true)
@@ -97,6 +104,9 @@ func _start_attack(kind: StringName) -> void:
 			_circles.append({"pos": center, "radius": CIRCLE_RADIUS, "progress": 0.0})
 			_circles.append({"pos": center + lead + Vector2(randf_range(-160, 160), randf_range(-120, 120)), "radius": CIRCLE_RADIUS, "progress": 0.0})
 			_circles.append({"pos": center + Vector2(randf_range(-220, 220), randf_range(-200, 60)), "radius": CIRCLE_RADIUS, "progress": 0.0})
+			var extra := 2 if _enraged else 1
+			for i in extra:
+				_circles.append({"pos": center + Vector2.from_angle(randf() * TAU) * randf_range(170, 240), "radius": CIRCLE_RADIUS, "progress": 0.0})
 			for c in _circles:
 				c.pos = c.pos.clamp(Vector2(90, 220), Vector2(630, 1200))
 			Sfx.play(&"charge", -12.0, 0.2)
@@ -106,7 +116,7 @@ func _start_attack(kind: StringName) -> void:
 			telegraph.laser_mode = 1
 			Sfx.play(&"charge", -4.0, 0.0)
 		&"spray":
-			_spray_left = 3
+			_spray_left = 4
 			_spray_timer = 0.3
 		&"summon":
 			_state_time = 0.6
@@ -115,7 +125,7 @@ func _start_attack(kind: StringName) -> void:
 
 func _end_attack(walk_time: float) -> void:
 	_state = &"walk"
-	_state_time = walk_time
+	_state_time = walk_time * (0.55 if _enraged else 0.8)
 	_circles.clear()
 	telegraph.circles = _circles
 	telegraph.laser_mode = 0
